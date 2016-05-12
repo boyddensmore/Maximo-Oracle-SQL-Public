@@ -21,8 +21,6 @@ where status in ('CLOSED')
   -- Exclude the current month to ensure monthly counts are complete.  We may want another query for current month.
   and actualfinish <= last_day(add_months(trunc(sysdate,'mm'),-1))+1
   and adjustedtargetresolutiontime is not null
---  and owner = 'BDENSMOR'
---  and ownergroup = 'MAXITSUPPORT'
 group by trunc(actualfinish, 'MON'), class, case when actualfinish <= adjustedtargetresolutiontime then 'SLA MET' else 'SLA NOT MET' end
 order by trunc(actualfinish, 'MON'), class desc, case when actualfinish <= adjustedtargetresolutiontime then 'SLA MET' else 'SLA NOT MET' end asc
 ;

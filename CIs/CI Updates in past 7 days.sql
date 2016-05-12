@@ -5,4 +5,4 @@ select Ci.Cinum, Ci.Ciname, Classstructure.Description, Ci.Status, Ci.Changeby ,
 from ci
 join Classstructure on Classstructure.Classstructureid = Ci.Classstructureid
 where Ci.changedate >= sysdate - 7
-and Ci.changeby not in ('BDENSMOR', 'MXINTADM');
+and Ci.changeby not in ('[[USERNAME]]');

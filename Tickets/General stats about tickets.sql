@@ -94,7 +94,7 @@
           -- MAXITSUPPORT, DPHUI, and BDENSMOR have a number of testing tickets.
           -- Safest to simply exclude them.
           and ownergroup != 'MAXITSUPPORT'
-          and owner not in ('DPHUI', 'BDENSMOR'))
+          and owner not in ('[[USERID]]'))
       group by ticketid)
     group by case when cnt = 1 then '1' 
                   when cnt = 2 then '2'

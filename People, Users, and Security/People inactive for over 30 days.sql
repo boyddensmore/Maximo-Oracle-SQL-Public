@@ -21,5 +21,5 @@ where person.status = 'PEND_DEACTIV'
 
 select personid, status, EX_TRANSDATETIME
 from MAXIMO.EXIFACE_WDAYPERSON
-where personid = upper('ebruce')
+where personid = upper('[[USERNAME]]')
 order by EX_TRANSDATETIME desc;

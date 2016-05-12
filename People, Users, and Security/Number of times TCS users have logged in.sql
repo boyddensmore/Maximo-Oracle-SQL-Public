@@ -11,7 +11,7 @@ select userid, count(logintrackingid)
 from Logintracking
 where userid in
   (select distinct(respparty) from Persongroupteam where (persongroup like 'TCS%'
-  or persongroup in ('IS COMP TELEPHY', 'SAP-SECURITY')))
+  or persongroup in ('[[PERSONGROUP]]')))
   and Logintracking.Attemptresult = 'LOGIN'
 group by userid
 order by count(logintrackingid) asc;
@@ -23,7 +23,7 @@ where
 userid in
   -- TCS Users
   (select distinct(respparty) from Persongroupteam where (persongroup like 'TCS%'
-  or persongroup in ('IS COMP TELEPHY', 'SAP-SECURITY')))
+  or persongroup in ('[[PERSONGROUP]]')))
 and 
 userid not in
   -- Users who have logged in
@@ -37,4 +37,4 @@ userid not in
 -- Double check, show all logins
 select *
 from logintracking
-where userid in ('RDAS', 'KDUTTA', 'RYADAV');
+where userid in ('[[USERID]]');

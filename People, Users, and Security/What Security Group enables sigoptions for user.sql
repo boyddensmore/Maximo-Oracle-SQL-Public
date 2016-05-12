@@ -15,7 +15,7 @@ FROM groupuser
   left JOIN applicationauth ON applicationauth.groupname=maxgroup.groupname
   left JOIN sigoption ON sigoption.optionname=applicationauth.optionname AND sigoption.app=applicationauth.app
 WHERE 1=1
---  and groupuser.userid='SSHANNON'
+--  and groupuser.userid='[[USERNAME]]'
   and maxgroup.groupname in ('CHGANL')
   and SIGOPTION.APP = 'CHANGE'
 --  and SIGOPTION.DESCRIPTION = 'Change Status'

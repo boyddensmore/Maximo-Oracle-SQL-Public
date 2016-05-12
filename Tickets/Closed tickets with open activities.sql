@@ -15,7 +15,7 @@ from tkstatus
   join ticket on tkstatus.TICKETID = ticket.TICKETID
   join woactivity on woactivity.ORIGRECORDID = ticket.TICKETID
 where ticket.CLASSIFICATIONID = 'TERMINATION'
-  and tkstatus.CHANGEBY = 'BDENSMOR'
+  and tkstatus.CHANGEBY = '[[USERID]]'
   and ticket.status in ('RESOLVED', 'CLOSED')
   and tkstatus.STATUS in 'CLOSED'
   and woactivity.STATUSDATE = tkstatus.CHANGEDATE

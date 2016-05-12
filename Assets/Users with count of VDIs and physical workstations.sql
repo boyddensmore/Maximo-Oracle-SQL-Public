@@ -39,6 +39,6 @@ select * from classstructure where classstructureid in ('1238', '1243', '1328');
 
 select ATTEMPTDATE, ATTEMPTRESULT, name, CLIENTHOST, CLIENTADDR 
 from MAXIMO.LOGINTRACKING
-where USERID in ('RSAN PED')
+where USERID in ('[[USERNAME]]')
   and ATTEMPTRESULT = 'LOGIN'
 order by ATTEMPTDATE desc;

@@ -235,19 +235,6 @@ order by assetnum;
 
 
 
-/*******************************************************************************
-*  Asset users and custodians with invalid Company / BU combination.
-*  Only include people on active assets.
-*******************************************************************************/
-
-select personid, FIRSTNAME, LASTNAME, 'IT-IS', displayname, status,
-  (select count(*) from assetlocusercust join asset on ASSETLOCUSERCUST.ASSETNUM = ASSET.ASSETNUM where ASSET.STATUS not in ('MISSING', 'DECOMMISSIONED', 'DISPOSED') and PERSON.PERSONID = ASSETLOCUSERCUST.PERSONID) ASSET_COUNT,
-  company, ex_businessunit, department, deptdesc
-from person
-where personid in (select personid from assetlocusercust join asset on ASSETLOCUSERCUST.ASSETNUM = ASSET.ASSETNUM where ASSET.STATUS not in ('MISSING', 'DECOMMISSIONED', 'DISPOSED'))
-  and ((not (company = 'ENM ENMAX Corporation' and (ex_businessunit in ('ENMAX Energy Corporation', 'ENMAX Power Services Corp.', 'ENMAX Encompass Inc.', 'ENMAX Corporation') or ex_businessunit is null))
-  and not (company = 'EPC ENMAX Power Corporation' and (ex_businessunit in ('ENMAX Power Corporation') or ex_businessunit is null))) or company is null or ex_businessunit is null)
-;
 
 /*******************************************************************************
 *  Assets with inactive users or custodians
@@ -348,16 +335,6 @@ WHERE asset.classstructureid in (select classstructureid
 ORDER BY assettag;
 
 
-/*******************************************************************************
-*  Count of workstations by status
-*******************************************************************************/
-
-SELECT status, count(*)
-FROM asset
---WHERE (asset.classstructureid IN ('1238', '1243')
---    OR upper(asset.ex_model) LIKE '%SURFACE%')
-GROUP BY status
-ORDER BY count(*) DESC;
 
 
 /*******************************************************************************

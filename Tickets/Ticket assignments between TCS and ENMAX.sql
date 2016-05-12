@@ -26,7 +26,7 @@ from ticket
       left join persongroup assigned_group on Tkownerhistory.Assignedownergroup = assigned_group.Persongroup
     where 
     -- Ticket was assigned to TCS
-      assigned_group.ex_manager = 'RRAJAN'
+      assigned_group.ex_manager = '[[USERID]]'
     group by tkownerhistory.ticketid) Tcs_Assignments on Tcs_Assignments.Ticketid = Ticket.Ticketid
   left join
   (select tkownerhistory.ticketid, count(*) ASSIGNED_TO_ENMAX_COUNT
@@ -34,7 +34,7 @@ from ticket
       left join persongroup assigned_group on Tkownerhistory.Assignedownergroup = assigned_group.Persongroup
     where 
     -- Ticket was assigned to TCS
-      assigned_group.ex_manager != 'RRAJAN'
+      assigned_group.ex_manager != '[[USERID]]'
     group by tkownerhistory.ticketid) Enmax_Assignments on Enmax_Assignments.Ticketid = Ticket.Ticketid
 and Ticket.Creationdate >= to_date('01-01-2015', 'mm-dd-yyyy');
 
@@ -53,7 +53,7 @@ from ticket
       left join persongroup assigned_group on Tkownerhistory.Assignedownergroup = assigned_group.Persongroup
     where 
     -- Ticket was assigned to TCS
-      assigned_group.ex_manager = 'RRAJAN'
+      assigned_group.ex_manager = '[[USERID]]'
     group by tkownerhistory.ticketid) Tcs_Assignments on Tcs_Assignments.Ticketid = Ticket.Ticketid
   join
   (select tkownerhistory.ticketid, count(*) ASSIGNED_TO_ENMAX_COUNT
@@ -61,7 +61,7 @@ from ticket
       left join persongroup assigned_group on Tkownerhistory.Assignedownergroup = assigned_group.Persongroup
     where 
     -- Ticket was assigned to TCS
-      assigned_group.ex_manager != 'RRAJAN'
+      assigned_group.ex_manager != '[[USERID]]'
     group by tkownerhistory.ticketid) Enmax_Assignments on Enmax_Assignments.Ticketid = Ticket.Ticketid
 and Ticket.Creationdate >= to_date('01-01-2015', 'mm-dd-yyyy');
 
@@ -74,7 +74,7 @@ and Ticket.Creationdate >= to_date('01-01-2015', 'mm-dd-yyyy');
 select Persongroupteam.Respparty 
 from persongroupteam
   join persongroup on persongroupteam.persongroup = Persongroup.Persongroup
-where Persongroup.Ex_Manager != 'RRAJAN';
+where Persongroup.Ex_Manager != '[[USERID]]';
 
 
 
@@ -85,5 +85,5 @@ where Persongroup.Ex_Manager != 'RRAJAN';
 select count(distinct(Tkownerhistory.ticketid)) DISTINCT_TCS_TICKETS
 from tkownerhistory
   left join persongroup assigned_group on Tkownerhistory.Assignedownergroup = assigned_group.Persongroup
-where assigned_group.ex_manager = 'RRAJAN'
+where assigned_group.ex_manager = '[[USERID]]'
 order by Tkownerhistory.Ticketid

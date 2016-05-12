@@ -27,4 +27,4 @@ where ADJUSTEDTARGETRESOLUTIONTIME <= (select ADJUSTEDTARGETRESOLUTIONTIME from 
 group by rollup(ownergroup, class, status)
 order by ownergroup, class, status;
 
-select personid from person where supervisor = 'CACKERMA';
+select personid from person where supervisor = '[[USERID]]';

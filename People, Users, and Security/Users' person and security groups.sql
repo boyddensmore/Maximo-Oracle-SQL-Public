@@ -3,7 +3,7 @@
 *  a script (F5 in SQL Developer) and check the script output for all details.
 *******************************************************************************/
 
-define USERID = "'RHUANG'";
+define USERID = "'[[USERNAME]]'";
 
 --Find all security groups a user is in
 select Groupuser.Userid, Groupuser.Groupname
@@ -30,9 +30,9 @@ where respparty = &USERID;
 --Find all security groups a user is in
 select Groupuser.Userid, Groupuser.Groupname
 from groupuser
-where Groupuser.Userid in ('APRESSE', 'KMITCHE', 'KBAILEY');
+where Groupuser.Userid in ('[[USERNAME]]');
 
 select Persongroupteam.Respparty, Persongroupteam.Persongroup, ',=' || Persongroupteam.Persongroup
 from Persongroupteam
-where respparty in ('APRESSE', 'KMITCHE', 'KBAILEY')
+where respparty in ('[[USERNAME]]')
 ORDER BY RESPPARTY, PERSONGROUP;

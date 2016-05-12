@@ -47,5 +47,5 @@ select (SELECT sys_context('userenv','instance_name') FROM dual) environment, SE
 from MAXSESSION
 where ACTIVE = 1
 --  and servername like 'MXUI%'
-  and userid in ('BDENSMOR')
+  and userid in ('[[USERID]]')
 ;

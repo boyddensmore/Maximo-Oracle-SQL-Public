@@ -23,4 +23,4 @@ join
       left join Classstructure Class_L2 on Class_L3.Parent = Class_L2.Classstructureid
       left join Classstructure Class_L1 on Class_L2.Parent = Class_L1.Classstructureid) Hierarchypath on Hierarchypath.Classstructureid = Ci.Classstructureid
 where Ci.changedate >= sysdate - 7
-and Ci.changeby not in ('BDENSMOR', 'MXINTADM');
+and Ci.changeby not in ('[[USERNAME]]');

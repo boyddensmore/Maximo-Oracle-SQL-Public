@@ -62,5 +62,5 @@ order by FIVEDAYSAGO.personid
   
 select *
 from MAXIMO.EXIFACE_WDAYPERSON
-where personid = 'SHATCH'
+where personid = '[[USERID]]'
 order by transid desc;

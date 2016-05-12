@@ -120,7 +120,7 @@ where MAXUSER.status != 'ACTIVE'
 select distinct person.personid, person.status, person.company, person.EX_BUSINESSUNIT, person.DEPARTMENT
 from person
   join ASSETLOCUSERCUST on person.PERSONID = ASSETLOCUSERCUST.PERSONID
-where person.company not in ('ENM ENMAX Corporation', 'EPC ENMAX Power Corporation')
+where person.company not in ('[[COMPANY]]')
 order by person.company;
 
 
@@ -133,7 +133,7 @@ where department in
     (select distinct person.personid
     from person
       join assetlocusercust on person.personid = assetlocusercust.personid
-    where person.company not in ('ENM ENMAX Corporation', 'EPC ENMAX Power Corporation')))
+    where person.company not in ('[[COMPANY]]')))
 group by department, company, EX_BUSINESSUNIT
 order by department, company, EX_BUSINESSUNIT;
 
@@ -168,23 +168,6 @@ from person
 where DEPARTMENT is null
 and status = 'ACTIVE';
 
-
-/*******************************************************************************
-*  Asset users and custodians with invalid Company / BU combination
-*******************************************************************************/
-
-select person.personid, person.FIRSTNAME, person.LASTNAME, 'IT-IS', person.status, person.department, person.deptdesc, person.ex_businessunit, person.company
---  EXIFACE_WDAYPERSON.ex_transdatetime, EXIFACE_WDAYPERSON.company WD_COMPANY, EXIFACE_WDAYPERSON.department WD_DEPT
-from person
---  left join EXIFACE_WDAYPERSON on person.PERSONID = EXIFACE_WDAYPERSON.PERSONID
-where ((not (person.company = 'ENM ENMAX Corporation' and (person.ex_businessunit in ('ENMAX Energy Corporation', 'ENMAX Power Services Corp.', 'ENMAX Encompass Inc.', 'ENMAX Corporation')))
-  and not (person.company = 'EPC ENMAX Power Corporation' and (person.ex_businessunit in ('ENMAX Power Corporation')))))
---  and (EXIFACE_WDAYPERSON.ex_transdatetime >= sysdate -1 or EXIFACE_WDAYPERSON.ex_transdatetime is null)
-  and person.personid in (select distinct personid from assetlocusercust);
-
-select distinct personid from assetlocusercust;
-
-select * from EXIFACE_WDAYPERSON;
 
 /*******************************************************************************
 *  Testing: Show all rows in interface table (data table)
