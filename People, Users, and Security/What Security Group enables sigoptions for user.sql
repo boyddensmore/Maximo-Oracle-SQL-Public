@@ -15,27 +15,33 @@ FROM groupuser
   left JOIN applicationauth ON applicationauth.groupname=maxgroup.groupname
   left JOIN sigoption ON sigoption.optionname=applicationauth.optionname AND sigoption.app=applicationauth.app
 WHERE 1=1
-  and groupuser.userid='SSHANNON'
+--  and groupuser.userid='SSHANNON'
   and maxgroup.groupname in ('CHGANL')
   and SIGOPTION.APP = 'CHANGE'
+--  and SIGOPTION.DESCRIPTION = 'Change Status'
 --  and upper(SIGOPTION.DESCRIPTION) = 'PMTCOCHATQ'
 --  and SIGOPTION.DESCRIPTION = 'Change Status'
 ORDER BY groupuser.userid, APPLICATIONAUTH.APP, APPLICATIONAUTH.GROUPNAME, SIGOPTION.DESCRIPTION;
 
 
+
 /*******************************************************************************
-*  List all sigoptions
+*  List all sigoptions granted to security groups
 *******************************************************************************/
 
 SELECT
   maxapps.app,
   maxapps.description,
   maxgroup.groupname,
-  maxgroup.description,
-  CURSOR (SELECT optionname FROM applicationauth WHERE groupname=maxgroup.groupname AND app=maxapps.app) AS auth
-FROM maxapps, maxgroup
---where app = 'PERSON'
-where groupname = 'EX_ITIS'
+  maxgroup.description GROUPDESC,
+  APPLICATIONAUTH.OPTIONNAME SIGOPTION_GRANTED,
+  (select count(*) from groupuser where groupname = maxgroup.groupname) USER_COUNT
+FROM maxapps
+  join applicationauth on applicationauth.app = maxapps.app
+  join maxgroup on MAXGROUP.GROUPNAME = APPLICATIONAUTH.GROUPNAME
+where maxapps.app in ('CHANGE')
+-- and maxgroup.groupname in ('CHGANL')
+ and APPLICATIONAUTH.OPTIONNAME in ('STATUS')
 ORDER BY maxapps.app, maxgroup.groupname;
 
 
@@ -93,7 +99,3 @@ WHERE 1=1
   and maxapps.app = 'CHANGE'
 ;
 
-select *
-from groupuser
-where groupname = 'CHGANL'
-  and userid in ('SSHANNON', 'BDENSMOR');

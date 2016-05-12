@@ -8,12 +8,11 @@
 *******************************************************************************/
 
 
-
 /*******************************************************************************
 *  CIs with no relationships
 *******************************************************************************/
 
-select ci.cinum, ci.ciname, ci.description, CLASSSTRUCTURE.CLASSIFICATIONID, 
+select ci.cinum, ci.ciname, ci.description, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
   CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, CI.CHANGEDATE
 from ci
   join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
@@ -26,7 +25,7 @@ where
     (select 1
     from CIRELATION
     where sourceci = ci.cinum or targetci = ci.cinum)
-order by CLASSSTRUCTURE.CLASSIFICATIONID, ciname;
+order by CLASSSTRUCTURE.CLASSIFICATIONID, ownergroup, ciname;
 
 
 
@@ -83,36 +82,44 @@ order by CLASSSTRUCTURE.CLASSIFICATIONID, CI.CHANGEBY;
 *  CIs with incomplete specs - Needs review
 *******************************************************************************/
 
-select classstructure.classificationid, CIspec.ASSETATTRID, 
-  count(*) TOTAL,
-  count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) COMPLETED_COUNT, 
-  count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) NOTCOMPLETED_COUNT, 
-  round(count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) /count(*) * 100, 2) COMPLETED_PCT, 
-  round(count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) /count(*) * 100, 2) NOTCOMPLETED_PCT
+select 
+  ',=' || ci.cinum, ci.ciname, classstructure.classificationid, CISPEC.ASSETATTRID, CISPEC.ALNVALUE, ci.changeby, ci.changedate
+--  classstructure.classificationid, 
+--  CIspec.ASSETATTRID, 
+--  count(*) TOTAL,
+--  count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) COMPLETED_COUNT, 
+--  count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) NOTCOMPLETED_COUNT, 
+--  round(count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) /count(*) * 100, 2) COMPLETED_PCT, 
+--  round(count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) /count(*) * 100, 2) NOTCOMPLETED_PCT
 from CI
   join classstructure on classstructure.classstructureid = ci.classstructureid
   join CIspec on CIspec.cinum = CI.cinum
 where 1=1
-  and (
-       (classstructure.classificationid = 'CI.COMPUTERSYSTEMCLUSTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+  and ( 1=0
+--       (classstructure.classificationid = 'CI.COMPUTERSYSTEMCLUSTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
     or (classstructure.classificationid = 'CI.MSSQLSCHEMA' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
-    or (classstructure.classificationid = 'CI.FIREWALL' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.FIREWALL' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
     or (classstructure.classificationid = 'CI.ORACLEDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'ORACLEDATABASE_DBVERSION'))
     or (classstructure.classificationid = 'CI.ORACLESCHEMA' and CIspec.ASSETATTRID in ('VERSION'))
-    or (classstructure.classificationid = 'CI.PHYSICALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'INTERNAL_IP_ADDRESS', 'OPERATINGSYSTEM_NAME', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'))
-    or (classstructure.classificationid = 'CI.RACK' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
-    or (classstructure.classificationid = 'CI.ROUTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
-    or (classstructure.classificationid = 'CI.SOFTWAREINSTALLATION' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'APPLICATION_TYPE', 'MANUFACTURER', 'SUPPORTHOURS', 'VERSION'))
-    or (classstructure.classificationid = 'CI.SOFTWAREPRODUCT' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
-    or (classstructure.classificationid = 'CI.SQLSERVERDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
-    or (classstructure.classificationid = 'CI.VIRTUALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'IPNETWORK_NAME', 'MAINTENANCE_WINDOW', 'INTERNAL_IP_ADDRESS', 'OPERATINGSYSTEM_NAME', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'))
-    
+--    or (classstructure.classificationid = 'CI.PHYSICALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
+--    or (classstructure.classificationid = 'CI.RACK' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.ROUTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.SOFTWAREINSTALLATION' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'APPLICATION_TYPE', 'MANUFACTURER', 'SUPPORTHOURS', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.SOFTWAREPRODUCT' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.SQLSERVERDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.VIRTUALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'IPNETWORK_NAME', 'MAINTENANCE_WINDOW', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
   )
   and classstructure.classificationid not in ('CI.BUSINESSSERVICE', 'CI.DNSSERVICE', 'CI.GENERIC_COMPUTERSYSTEM', 'CI.INFRASERVICE', 
                                               'CI.LDAPSERVICE', 'CI.NETWORKSERVICE', 'CI.SERVICE', 'CI.SYSTEMCONTROLLER', 'CI.TAPELIBRARY', 'CI.UPS', 'CI.WEBSERVICE')
-group by classstructure.classificationid, CIspec.ASSETATTRID
-order by classstructure.classificationid, CIspec.ASSETATTRID;
-
+  and alnvalue is null
+--group by 
+--    classstructure.classificationid,
+--    CIspec.ASSETATTRID
+order by 
+  classstructure.classificationid,
+  ci.cinum, 
+  CIspec.ASSETATTRID
+;
 
 
 /*******************************************************************************
@@ -148,7 +155,8 @@ where CLASSSTRUCTURE.CLASSIFICATIONID not in
   'CI.SOFTWARESERVICE', 'CI.DNSSERVICE', 'CI.STORAGEARRAY', 'CI.INFRASERVICE', 'CI.SOFTWAREPRODUCT', 
   'CI.BUSINESSSERVICE', 'CI.TELEPHONYINFRA', 'CI.RACK', 'CI.TELEPHONY', 'CI.TAPELIBRARY', 
   'CI.UPS', 'CI.ORACLESCHEMA', 'CI.COMPUTERSYSTEMCLUSTER', 'CI.LDAPSERVICE', 'CI.ORACLEDATABASE', 
-  'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION', 'CI.SERVICE');
+  'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION', 'CI.SERVICE', 'CI.WINDOWSFILESYSTEM', 
+  'CI.STORAGEVOLUME', 'CI.VMWAREDATASTORE');
 
 --Count
 select CLASSSTRUCTURE.CLASSIFICATIONID, count(*)
@@ -160,7 +168,8 @@ where CLASSSTRUCTURE.CLASSIFICATIONID not in
   'CI.SOFTWARESERVICE', 'CI.DNSSERVICE', 'CI.STORAGEARRAY', 'CI.INFRASERVICE', 'CI.SOFTWAREPRODUCT', 
   'CI.BUSINESSSERVICE', 'CI.TELEPHONYINFRA', 'CI.RACK', 'CI.TELEPHONY', 'CI.TAPELIBRARY', 
   'CI.UPS', 'CI.ORACLESCHEMA', 'CI.COMPUTERSYSTEMCLUSTER', 'CI.LDAPSERVICE', 'CI.ORACLEDATABASE', 
-  'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION', 'CI.SERVICE')
+  'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION', 'CI.SERVICE', 'CI.WINDOWSFILESYSTEM', 
+  'CI.STORAGEVOLUME', 'CI.VMWAREDATASTORE')
 group by CLASSSTRUCTURE.CLASSIFICATIONID;
 
 
@@ -171,6 +180,20 @@ group by CLASSSTRUCTURE.CLASSIFICATIONID;
 select ',='||ci.cinum cinum, ci.cinum, ci.ciname, CLASSSTRUCTURE.CLASSIFICATIONID, ci.CHANGEBY, ci.CHANGEDATE
 from ci
   left join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = ci.CLASSSTRUCTUREID
-where exists (select 1 from asset where ASSET.STATUS not in ('IN STOCK', 'DEPLOYED') and ci.assetnum = asset.assetnum)
-  and ci.status in ('NOT READY', 'OPERATING')
+  join asset on CI.ASSETNUM = ASSET.ASSETNUM
+where ci.status in ('NOT READY', 'OPERATING')
+  and asset.status not in ('IN STOCK', 'DEPLOYED')
 order by CLASSSTRUCTURE.CLASSIFICATIONID, CI.CHANGEBY;
+
+/*******************************************************************************
+*  Active asset with decommissioned CI
+*******************************************************************************/
+
+select ',='||asset.assetnum assetnum, asset.assetnum, asset.assettag, asset.status ASSETSTATUS, CLASSSTRUCTURE.CLASSIFICATIONID,
+  ci.ciname, ci.status CISTATUS, ci.CHANGEBY, ci.CHANGEDATE
+from asset
+  left join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = asset.CLASSSTRUCTUREID
+  join ci on ci.assetnum = asset.assetnum
+where asset.status in ('IN STOCK', 'DEPLOYED')
+  and ci.status not in ('OPERATING', 'NOT READY')
+order by asset.assetnum;
