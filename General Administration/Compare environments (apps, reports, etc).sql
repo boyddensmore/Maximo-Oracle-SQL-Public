@@ -37,7 +37,7 @@ order by app;
  sys_context('userenv','db_name') INSTANCE,
   m.app, m.apptype, m.custapptype, m.description,
   m.maintbname, m.orderby, m.originalapp, m.restrictions,
-  ora_hash(mp.presentation) APP_HASH
+  ora_hash(mp.presentation)
 from maxapps m
 join maxpresentation mp on mp.app=m.app
 order by m.app;

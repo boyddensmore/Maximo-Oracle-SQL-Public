@@ -7,156 +7,17 @@
 * - 
 *******************************************************************************/
 
-/*******************************************************************************
-*  Recursive analysis of CI impacts and calendars through relationships
-*  Infrastructure --> Service
-*******************************************************************************/
-
-select *
-from (
-  select LEVEL LVL, substr(SYS_CONNECT_BY_PATH(TGT_NAME, ' <-- '), 6) || ' <-- ' || SRC_NAME "CIHIERARCHY", SRC_NAME, SRC_CLASS
-  from 
-    (select CI.CINUM SRC_NUM, CI.CINAME SRC_NAME, CI.STATUS SRC_STATUS, CI.DESCRIPTION SRC_DESC, CLASSSTRUCTURE.CLASSIFICATIONID SRC_CLASS, 
-      Relatedci.Relationnum RELATION,
-      relconnector.connector,
-      Relatedci.targetci,
-      targetci.cinum TGT_NUM,
-      targetci.ciname TGT_NAME
-    from ci
-      join Classstructure on CI.CLASSSTRUCTUREID = Classstructure.CLASSSTRUCTUREID
-      join (select 
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.sourceci else CIRELATION.targetci end SOURCECI,
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.targetci else CIRELATION.sourceci end TARGETCI,
-              CIRELATION.relationnum
-            from CIRELATION) RELATEDCI on ci.cinum = RELATEDCI.sourceci
-      join ci targetci on targetci.cinum = RELATEDCI.TARGETCI
-      join (select distinct relationnum, NVL(SUBSTR(relationnum, INSTR(relationnum, '.')+1, length(relationnum)), relationnum) connector from cirelation) relconnector on relconnector.relationnum = RELATEDCI.RELATIONNUM
-    where 1=1
-      and ci.STATUS not in ('DECOMMISSIONED')
-    order by ci.cinum) CIS
-  connect by nocycle prior SRC_NUM = TGT_NUM
-  order by SRC_CLASS, src_name
---  SYS_CONNECT_BY_PATH(SRC_NAME || ' ' || connector, ' > ')
-)
---where src_name = 'MITPRD'
-order by cihierarchy
-;
-
-
-/*******************************************************************************
-*  Recursive analysis of CI impacts and calendars through relationships
-*  Service --> Infrastructure
-*******************************************************************************/
-
-select *
-from (
-  select LEVEL LVL, 
-    substr(SYS_CONNECT_BY_PATH(TGT_NAME, ' --> '), 6) || ' --> ' || SRC_NAME "CIHIERARCHY", 
-    substr(SYS_CONNECT_BY_PATH(TGT_NAME, ' --> '), 6) || ' --> ' || SRC_NAME "CIHIERARCHY", 
-    SRC_NAME, SRC_CLASS
-  from 
-    (select CI.CINUM SRC_NUM, CI.CINAME SRC_NAME, CI.STATUS SRC_STATUS, CI.DESCRIPTION SRC_DESC, SRC_CLASS.CLASSIFICATIONID SRC_CLASS, 
-      Relatedci.Relationnum RELATION,
-      relconnector.connector,
-      Relatedci.targetci,
-      targetci.cinum TGT_NUM,
-      targetci.ciname TGT_NAME
-    from ci
-      join Classstructure SRC_CLASS on CI.CLASSSTRUCTUREID = SRC_CLASS.CLASSSTRUCTUREID
-      join (select 
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.sourceci else CIRELATION.targetci end TARGETCI,
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.targetci else CIRELATION.sourceci end SOURCECI,
-              CIRELATION.relationnum
-            from CIRELATION) RELATEDCI on ci.cinum = RELATEDCI.sourceci
-      join ci targetci on targetci.cinum = RELATEDCI.TARGETCI
-      join Classstructure TGT_CLASS on targetci.CLASSSTRUCTUREID = TGT_CLASS.CLASSSTRUCTUREID
-      join (select distinct relationnum, NVL(SUBSTR(relationnum, INSTR(relationnum, '.')+1, length(relationnum)), relationnum) connector from cirelation) relconnector on relconnector.relationnum = RELATEDCI.RELATIONNUM
-    where 1=1
-      and ci.STATUS not in ('DECOMMISSIONED')
-    order by ci.cinum) CIS
-  connect by nocycle prior SRC_NUM = TGT_NUM
-  order by SRC_CLASS, src_name
---  SYS_CONNECT_BY_PATH(SRC_NAME || ' ' || connector, ' > ')
-)
---where src_name like 'MITPRD'
-order by SRC_NAME, lvl
-;
-
-
-/*******************************************************************************
-*  Recursive analysis of CI impacts and calendars through relationships
-*  Infrastructure --> Query Target --> Services
-*  Broken?
-*******************************************************************************/
-
-select *
-from (
-  select LEVEL LVL, substr(SYS_CONNECT_BY_PATH(TGT_NAME, ' <-- '), 6) || ' <-- ' || SRC_NAME "CIHIERARCHY", SRC_NAME, SRC_CLASS, connect_by_isleaf cbi
-  from 
-    (select CI.CINUM SRC_NUM, CI.CINAME SRC_NAME, CI.STATUS SRC_STATUS, CI.DESCRIPTION SRC_DESC, CLASSSTRUCTURE.CLASSIFICATIONID SRC_CLASS, 
-      Relatedci.Relationnum RELATION,
-      relconnector.connector,
-      Relatedci.targetci,
-      targetci.cinum TGT_NUM,
-      targetci.ciname TGT_NAME
-    from ci
-      join Classstructure on CI.CLASSSTRUCTUREID = Classstructure.CLASSSTRUCTUREID
-      join (select 
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.sourceci else CIRELATION.targetci end SOURCECI,
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.targetci else CIRELATION.sourceci end TARGETCI,
-              CIRELATION.relationnum
-            from CIRELATION) RELATEDCI on ci.cinum = RELATEDCI.sourceci
-      join ci targetci on targetci.cinum = RELATEDCI.TARGETCI
-      join (select distinct relationnum, NVL(SUBSTR(relationnum, INSTR(relationnum, '.')+1, length(relationnum)), relationnum) connector from cirelation) relconnector on relconnector.relationnum = RELATEDCI.RELATIONNUM
-    where 1=1
-      and ci.STATUS not in ('DECOMMISSIONED')
-    order by ci.cinum) CIS
-  connect by nocycle prior SRC_NUM = TGT_NUM
-  order by SRC_CLASS, src_name
---  SYS_CONNECT_BY_PATH(SRC_NAME || ' ' || connector, ' > ')
-)
-where src_name = 'MITPRD'
-UNION
-select *
-from (
-  select LEVEL LVL, substr(SYS_CONNECT_BY_PATH(TGT_NAME, ' --> '), 6) || ' --> ' || SRC_NAME "CIHIERARCHY", SRC_NAME, SRC_CLASS, connect_by_isleaf cbi
-  from 
-    (select CI.CINUM SRC_NUM, CI.CINAME SRC_NAME, CI.STATUS SRC_STATUS, CI.DESCRIPTION SRC_DESC, CLASSSTRUCTURE.CLASSIFICATIONID SRC_CLASS, 
-      Relatedci.Relationnum RELATION,
-      relconnector.connector,
-      Relatedci.targetci,
-      targetci.cinum TGT_NUM,
-      targetci.ciname TGT_NAME
-    from ci
-      join Classstructure on CI.CLASSSTRUCTUREID = Classstructure.CLASSSTRUCTUREID
-      join (select 
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.sourceci else CIRELATION.targetci end TARGETCI,
-              case when CIRELATION.relationnum = 'RELATION.SUPPORTS' then CIRELATION.targetci else CIRELATION.sourceci end SOURCECI,
-              CIRELATION.relationnum
-            from CIRELATION) RELATEDCI on ci.cinum = RELATEDCI.sourceci
-      join ci targetci on targetci.cinum = RELATEDCI.TARGETCI
-      join (select distinct relationnum, NVL(SUBSTR(relationnum, INSTR(relationnum, '.')+1, length(relationnum)), relationnum) connector from cirelation) relconnector on relconnector.relationnum = RELATEDCI.RELATIONNUM
-    where 1=1
-      and ci.STATUS not in ('DECOMMISSIONED')
-    order by ci.cinum) CIS
-  connect by nocycle prior SRC_NUM = TGT_NUM
-  order by SRC_CLASS, src_name
---  SYS_CONNECT_BY_PATH(SRC_NAME || ' ' || connector, ' > ')
-)
-where src_name like 'MITPRD'
-;
 
 /*******************************************************************************
 *  CIs with no relationships
 *******************************************************************************/
 
-select ci.cinum, ci.ciname, CI.ASSETNUM, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
-  ci.CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, person.ownergroup, CI.CHANGEDATE
+select ci.cinum, ci.ciname, ci.description, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
+  CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, CI.CHANGEDATE
 from ci
   join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
-  join person on PERSON.PERSONID = CI.CHANGEBY
 where 
-  ci.status in 'OPERATING'
+  status in 'OPERATING'
   and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.COMPUTERSYSTEMCLUSTER', 'CI.MSSQLSCHEMA', 
     'CI.ORACLESCHEMA', 'CI.SQLSERVERDATABASE', 'CI.SOFTWAREPRODUCT', 'CI.PHYSICALCOMPUTERSYSTEM', 
     'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION')
@@ -164,7 +25,7 @@ where
     (select 1
     from CIRELATION
     where sourceci = ci.cinum or targetci = ci.cinum)
-order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
+order by CLASSSTRUCTURE.CLASSIFICATIONID, ownergroup, ciname;
 
 
 
@@ -172,12 +33,10 @@ order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
 *  CIs with no classification
 *******************************************************************************/
 
-select ', =' || ci.cinum, ci.cinum, ci.ciname, ci.status, ci.description, CI.CHANGEBY, PERSON.OWNERGROUP, CI.CHANGEDATE, A_CI.EAUDITTIMESTAMP, A_CI.EAUDITTYPE, A_CI.EAUDITUSERNAME, A_CI.CINAME
+select ci.cinum, ci.ciname, ci.description, CI.CHANGEBY, CI.CHANGEDATE
 from ci
-  join person on CI.CHANGEBY = PERSON.PERSONID
-  left join a_ci on (CI.CINUM = A_CI.CINUM)
-where ci.CLASSSTRUCTUREID is null
-order by ci.cinum;
+where CLASSSTRUCTUREID is null;
+
 
 /*******************************************************************************
 *  CIs with no support calendar, business impact, support owner group
@@ -199,17 +58,12 @@ where (EX_SUPPORTCALENDAR is null
 *  CIs in a NOT READY status
 *******************************************************************************/
 
-select ',='||ci.cinum CINUM, ci.cinum, ci.ciname, ci.description, CLASSSTRUCTURE.CLASSIFICATIONID, 
-  ci.CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, PERSON.OWNERGROUP, CI.CHANGEDATE,
-  wochange.wonum, WOCHANGE.DESCRIPTION, WOCHANGE.SCHEDSTART, WOCHANGE.SCHEDFINISH
+select ',='||ci.cinum CINUM, ci.cinum, ci.ciname, ci.description, CLASSSTRUCTURE.CLASSIFICATIONID, CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, CI.CHANGEDATE
 from ci
   left join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
-  join person on person.personid = ci.changeby
-  left join MULTIASSETLOCCI on MULTIASSETLOCCI.CINUM = CI.CINUM
-  left join wochange on WOCHANGE.WONUM = MULTIASSETLOCCI.RECORDKEY
-where ci.status = 'NOT READY'
---  and CI.CHANGEDATE >= sysdate - 45
-order by CI.CHANGEBY;
+where status = 'NOT READY'
+order by CLASSSTRUCTURE.CLASSIFICATIONID, CI.CHANGEBY;
+
 
 
 /*******************************************************************************
@@ -343,41 +197,3 @@ from asset
 where asset.status in ('IN STOCK', 'DEPLOYED')
   and ci.status not in ('OPERATING', 'NOT READY')
 order by asset.assetnum;
-
-
-/*******************************************************************************
-*  Relationships to/from inactive CIs
-*******************************************************************************/
-
-select SOURCECI.STATUS src_status, SRC_CLASS.CLASSIFICATIONID src_class, SOURCECI.CINAME src_ciname,
-  CIRELATION.RELATIONNUM, 
-  TARGETCI.STATUS tgt_status, TGT_CLASS.CLASSIFICATIONID tgt_class, TARGETCI.CINAME tgt_ciname
-from CIRELATION
-  join ci sourceci on SOURCECI.CINUM = CIRELATION.SOURCECI
-  left join CLASSSTRUCTURE src_class on src_class.CLASSSTRUCTUREID = SOURCECI.CLASSSTRUCTUREID
-  join ci targetci on TARGETCI.CINUM = CIRELATION.TARGETCI
-  left join classstructure tgt_class on TGT_CLASS.CLASSSTRUCTUREID = TARGETCI.CLASSSTRUCTUREID
-where SOURCECI.STATUS = 'DECOMMISSIONED'
-  or TARGETCI.STATUS = 'DECOMMISSIONED';
-
-
-/*******************************************************************************
-*  CIs with specs not based on classification
-*******************************************************************************/
-
-select 
---  distinct cispec.cinum
-  cispec.cinum, ci.ciname, ci.changeby, ci.changedate, CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID, CISPEC.ALNVALUE, CISPEC.NUMVALUE, CISPEC.CHANGEBY ATTRCHGBY, CISPEC.CHANGEDATE ATTRCHGDATE
---  CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID, count(*)
-from cispec
-  left join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID
-  join ci on CISPEC.CINUM = CI.CINUM
-where 1=1
---  and not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
-  and CLASSSTRUCTURE.DESCRIPTION in ('CI.MSSQLSCHEMA')
-  and CISPEC.ASSETATTRID in ('MANUFACTURER')
---  and CISPEC.ALNVALUE != 'Microsoft'
---  and CISPEC.CHANGEBY not in ('MXINTADM')
---group by CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID
---order by CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID
-;
