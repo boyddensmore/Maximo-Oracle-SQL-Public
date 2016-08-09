@@ -12,6 +12,7 @@ select CI.CINUM, CI.CINAME, CI.STATUS, CI.DESCRIPTION, CLASSSTRUCTURE.CLASSIFICA
   OPERATINGSYSTEM_NAME.OPERATINGSYSTEM_NAME, FIRMWARE.FIRMWARE,
   RSA_IP_ADDRESS.RSA_IP_ADDRESS, 
   STORAGE_IP_ADDRESS.STORAGE_IP_ADDRESS
+  ,RUNSONCLUSTER.CINAME RUNS_ON_CLUSTER
   ,Relatedci.Source_Ciname RELATEDCI
   ,Relatedci.Relationnum RELATION
 from ci
@@ -29,6 +30,10 @@ from ci
       join cirelation on Cirelation.Targetci = Ci.Cinum
       join ci sourceci on Cirelation.Sourceci = Sourceci.Cinum
     where Sourceci.Classstructureid not in ('1185', 'CCI00112')) RELATEDCI on Ci.Cinum = Relatedci.target_Cinum
+  left join (select cirelation.sourceci, CIRELATION.RELATIONNUM, TARGETCI.CINUM, TARGETCI.CINAME
+              from cirelation
+                join ci targetci on targetci.cinum = cirelation.targetci
+              where TARGETCI.CLASSSTRUCTUREID = '1185') RUNSONCLUSTER on ci.cinum = RUNSONCLUSTER.sourceci
 where 1=1
   and CI.CLASSSTRUCTUREID in 
     (select CLASSSTRUCTURE.CLASSSTRUCTUREID
@@ -39,7 +44,6 @@ where 1=1
         'CI.FIREWALL', 'CI.ROUTER', 'CI.PDU', 'CI.NETWORKSERVICE', 'CI.NETWORK'))
   and ci.STATUS not in ('DECOMMISSIONED')
   order by ci.cinum;
-
 
 select Ci.Cinum, Ci.Ciname, /*Ci.Description CI_DESCRIPTION, Ci.Classstructureid CI_CLASSSTRUCTUREID, Ci.Status CI_STATUS, 
   Ci.Ex_Authciappsuppcontact, Ci.Ex_Authcibuowner, Ci.Ex_Authcinetwork, Ci.Ex_Authcisystemcontact,*/
@@ -59,3 +63,35 @@ where CI.CLASSSTRUCTUREID in ('1070', '1122', '1124', '1184', '1185', '1239', 'C
 select count(*)
 from ci
 where CI.CLASSSTRUCTUREID in ('1070', '1122', '1124', '1184', '1185', '1239', 'CCI00112');
+
+
+
+/*******************************************************************************
+*  Active Server CIs and Assets
+*******************************************************************************/
+
+select *
+from
+  (select cinum, ciname, CI_CLASS.DESCRIPTION CI_CLASS, ci.status CI_STATUS, 
+    ASSET.ASSETNUM, ASSET.ASSETTAG as assetname, upper(ASSET_CLASS.DESCRIPTION) ASSET_CLASS, asset.status ASSET_STATUS
+  from ci
+    left join asset on CI.ASSETNUM = ASSET.ASSETNUM
+    left join CLASSSTRUCTURE CI_CLASS on CI_CLASS.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+    left join CLASSSTRUCTURE ASSET_CLASS on ASSET_CLASS.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID
+  union
+  select CI.CINUM, CI.CINAME, CI_CLASS.DESCRIPTION CI_CLASS, ci.status CI_STATUS, 
+    ASSET.ASSETNUM, assettag as assetname, upper(ASSET_CLASS.DESCRIPTION) ASSET_CLASS, asset.status ASSET_STATUS
+  from asset
+    left join ci on CI.ASSETNUM = ASSET.ASSETNUM
+    left join CLASSSTRUCTURE CI_CLASS on CI_CLASS.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+    left join CLASSSTRUCTURE ASSET_CLASS on ASSET_CLASS.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID) ASSET_CI
+where 
+  (ci_class is null 
+  or CI_CLASS in ('CI.VIRTUALCOMPUTERSYSTEM', 'CI.PHYSICALCOMPUTERSYSTEM'))
+  and
+  (asset_class is null 
+  or asset_CLASS in ('PHYSICAL SERVER'))
+  and (ci_status not in ('DECOMMISSIONED')
+    or asset_status not in ('DECOMMISSIONED', 'DISPOSED'))
+order by CI_CLASS, ASSET_CLASS
+;
