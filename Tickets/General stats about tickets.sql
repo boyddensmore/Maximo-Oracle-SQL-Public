@@ -72,6 +72,47 @@
 
 
 /*******************************************************************************
+*  Conparison of Reported and Created dates by month
+*******************************************************************************/
+
+
+select sr.EXTERNALSYSTEM SOURCE, 
+  case when reportdate < creationdate then 'REPORT < CREATE' else
+    case when reportdate > creationdate then 'REPORT > CREATE' else
+      case when reportdate = creationdate then 'REPORT = CREATE' else null end
+    end
+  end REPORT_CREATE_COMPARE,
+  trunc(reportdate, 'MON') MONTH,
+  TOTAL_TICKETS.TICKET_COUNT TOTAL_TICKETS_FOR_SOURCE,
+  count(*) TICKET_COUNT,
+  round((count(*) / TOTAL_TICKETS.TICKET_COUNT) * 100, 2) PERCENTAGE
+from sr
+  join (select EXTERNALSYSTEM, trunc(reportdate, 'MON') MONTH, count(*) TICKET_COUNT 
+        from sr 
+        where creationdate >= to_date('01-Jan-16 00:00:00', 'dd-Mon-yy hh24:mi:ss') 
+          and EXTERNALSYSTEM is not null 
+        group by EXTERNALSYSTEM, trunc(reportdate, 'MON')) TOTAL_TICKETS on (TOTAL_TICKETS.EXTERNALSYSTEM = SR.EXTERNALSYSTEM
+                                                                            and total_tickets.month = trunc(sr.reportdate, 'MON'))
+where creationdate >= to_date('01-Jan-16 00:00:00', 'dd-Mon-yy hh24:mi:ss')
+  and sr.EXTERNALSYSTEM is not null
+group by sr.EXTERNALSYSTEM,
+  trunc(reportdate, 'MON'),
+  case when reportdate < creationdate then 'REPORT < CREATE' else
+    case when reportdate > creationdate then 'REPORT > CREATE' else
+      case when reportdate = creationdate then 'REPORT = CREATE' else null end
+    end
+  end,
+  TOTAL_TICKETS.TICKET_COUNT
+order by sr.EXTERNALSYSTEM, 
+  case when reportdate < creationdate then 'REPORT < CREATE' else
+    case when reportdate > creationdate then 'REPORT > CREATE' else
+      case when reportdate = creationdate then 'REPORT = CREATE' else null end
+    end
+  end,
+  trunc(reportdate, 'MON')
+;
+
+/*******************************************************************************
 *  Number of teams involved in a ticket, by assignment
 *******************************************************************************/
 

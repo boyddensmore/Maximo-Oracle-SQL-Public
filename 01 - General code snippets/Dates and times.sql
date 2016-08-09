@@ -61,3 +61,26 @@ from all_objects
 -- first day of this month.
 where rownum <= (trunc(add_months(sysdate, &monthsago+1), 'MON')) -
                (trunc(add_months(sysdate, &monthsago), 'MON'));
+               
+
+/*******************************************************************************
+*  List last X years
+*******************************************************************************/
+
+select extract(year from sysdate) - (level-1) as years 
+  from dual 
+connect by level <=5
+order by years;
+
+
+/*******************************************************************************
+*  List last X months
+*******************************************************************************/
+
+SELECT to_char(add_months(SYSDATE, (LEVEL-1 )),'Mon-yy') as months 
+  FROM dual 
+<<<<<<< HEAD
+CONNECT BY LEVEL <= 6;
+=======
+CONNECT BY LEVEL <= 6
+>>>>>>> f43e630a8cd9c63eaf3ac059379442af11df2ac8
