@@ -72,26 +72,35 @@ where CI.CLASSSTRUCTUREID in ('1070', '1122', '1124', '1184', '1185', '1239', 'C
 
 select *
 from
-  (select cinum, ciname, CI_CLASS.DESCRIPTION CI_CLASS, ci.status CI_STATUS, 
-    ASSET.ASSETNUM, ASSET.ASSETTAG as assetname, upper(ASSET_CLASS.DESCRIPTION) ASSET_CLASS, asset.status ASSET_STATUS
+  (select CI.CINAME, CI.CINUM, CI_CLASS.DESCRIPTION CI_CLASS, ci.status CI_STATUS, 
+    ASSET.ASSETTAG as assetname, ASSET.ASSETNUM, upper(ASSET_CLASS.DESCRIPTION) ASSET_CLASS, asset.status ASSET_STATUS, ASSET.MANUFACTURER, ASSET.EX_MODEL, ASSET.SERIALNUM, 
+    OPERATINGSYSTEM_NAME.OPERATINGSYSTEM_NAME, FIRMWARE.FIRMWARE, INTERNAL_IP_ADDRESS.INTERNAL_IP_ADDRESS, CI.CINUM CINUM2
   from ci
     left join asset on CI.ASSETNUM = ASSET.ASSETNUM
     left join CLASSSTRUCTURE CI_CLASS on CI_CLASS.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
     left join CLASSSTRUCTURE ASSET_CLASS on ASSET_CLASS.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID
+    left join (select cinum, assetattrid, alnvalue OPERATINGSYSTEM_NAME from cispec where cispec.assetattrid = 'OPERATINGSYSTEM_NAME') OPERATINGSYSTEM_NAME on OPERATINGSYSTEM_NAME.CINUM = ci.cinum
+    left join (select cinum, assetattrid, alnvalue FIRMWARE from cispec where cispec.assetattrid = 'FIRMWARE') FIRMWARE on FIRMWARE.CINUM = ci.cinum
+    left join (select cinum, assetattrid, alnvalue INTERNAL_IP_ADDRESS from cispec where cispec.assetattrid = 'INTERNAL_IP_ADDRESS') INTERNAL_IP_ADDRESS on INTERNAL_IP_ADDRESS.CINUM = ci.cinum
   union
-  select CI.CINUM, CI.CINAME, CI_CLASS.DESCRIPTION CI_CLASS, ci.status CI_STATUS, 
-    ASSET.ASSETNUM, assettag as assetname, upper(ASSET_CLASS.DESCRIPTION) ASSET_CLASS, asset.status ASSET_STATUS
+  select CI.CINAME, CI.CINUM, CI_CLASS.DESCRIPTION CI_CLASS, ci.status CI_STATUS, 
+    ASSET.ASSETTAG as assetname, ASSET.ASSETNUM, upper(ASSET_CLASS.DESCRIPTION) ASSET_CLASS, asset.status ASSET_STATUS, ASSET.MANUFACTURER, ASSET.EX_MODEL, ASSET.SERIALNUM, 
+    OPERATINGSYSTEM_NAME.OPERATINGSYSTEM_NAME, FIRMWARE.FIRMWARE, INTERNAL_IP_ADDRESS.INTERNAL_IP_ADDRESS, CI.CINUM CINUM2
   from asset
-    left join ci on CI.ASSETNUM = ASSET.ASSETNUM
-    left join CLASSSTRUCTURE CI_CLASS on CI_CLASS.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
-    left join CLASSSTRUCTURE ASSET_CLASS on ASSET_CLASS.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID) ASSET_CI
+    left join CI on ci.ASSETNUM = ASSET.ASSETNUM
+    left join CLASSSTRUCTURE CI_CLASS on CI_CLASS.CLASSSTRUCTUREID = ci.CLASSSTRUCTUREID
+    left join CLASSSTRUCTURE ASSET_CLASS on ASSET_CLASS.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID
+    left join (select cinum, assetattrid, alnvalue OPERATINGSYSTEM_NAME from cispec where cispec.assetattrid = 'OPERATINGSYSTEM_NAME') OPERATINGSYSTEM_NAME on OPERATINGSYSTEM_NAME.CINUM = ci.cinum
+    left join (select cinum, assetattrid, alnvalue FIRMWARE from cispec where cispec.assetattrid = 'FIRMWARE') FIRMWARE on FIRMWARE.CINUM = ci.cinum
+    left join (select cinum, assetattrid, alnvalue INTERNAL_IP_ADDRESS from cispec where cispec.assetattrid = 'INTERNAL_IP_ADDRESS') INTERNAL_IP_ADDRESS on INTERNAL_IP_ADDRESS.CINUM = ci.cinum) ASSET_CI
 where 
-  (ci_class is null 
-  or CI_CLASS in ('CI.VIRTUALCOMPUTERSYSTEM', 'CI.PHYSICALCOMPUTERSYSTEM'))
-  and
-  (asset_class is null 
-  or asset_CLASS in ('PHYSICAL SERVER'))
-  and (ci_status not in ('DECOMMISSIONED')
-    or asset_status not in ('DECOMMISSIONED', 'DISPOSED'))
+  1=1
+--  and (ci_class is null or CI_CLASS in ('CI.VIRTUALCOMPUTERSYSTEM', 'CI.PHYSICALCOMPUTERSYSTEM', 'CI.SWITCH', 'CI.ROUTER', 'CI.FIREWALL'))
+--  and (asset_class is null or asset_CLASS in ('PHYSICAL SERVER'))
+--  and (ci_status not in ('DECOMMISSIONED')
+--    or asset_status not in ('DECOMMISSIONED', 'DISPOSED'))
 order by CI_CLASS, ASSET_CLASS
 ;
+
+select *
+from assetspec;

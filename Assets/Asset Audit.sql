@@ -235,6 +235,19 @@ order by assetnum;
 
 
 
+/*******************************************************************************
+*  Asset users and custodians with invalid Company / BU combination.
+*  Only include people on active assets.
+*******************************************************************************/
+
+select personid, FIRSTNAME, LASTNAME, 'IT-IS', displayname, status,
+  (select count(*) from assetlocusercust join asset on ASSETLOCUSERCUST.ASSETNUM = ASSET.ASSETNUM where ASSET.STATUS not in ('MISSING', 'DECOMMISSIONED', 'DISPOSED') and PERSON.PERSONID = ASSETLOCUSERCUST.PERSONID) ASSET_COUNT,
+  company, ex_businessunit, department, deptdesc
+from person
+where personid in (select personid from assetlocusercust join asset on ASSETLOCUSERCUST.ASSETNUM = ASSET.ASSETNUM where ASSET.STATUS not in ('MISSING', 'DECOMMISSIONED', 'DISPOSED'))
+  and ((not (company = 'ENM ENMAX Corporation' and (ex_businessunit in ('ENMAX Energy Corporation', 'ENMAX Power Services Corp.', 'ENMAX Encompass Inc.', 'ENMAX Corporation') or ex_businessunit is null))
+  and not (company = 'EPC ENMAX Power Corporation' and (ex_businessunit in ('ENMAX Power Corporation') or ex_businessunit is null))) or company is null or ex_businessunit is null)
+;
 
 /*******************************************************************************
 *  Assets with inactive users or custodians
@@ -335,6 +348,16 @@ WHERE asset.classstructureid in (select classstructureid
 ORDER BY assettag;
 
 
+/*******************************************************************************
+*  Count of workstations by status
+*******************************************************************************/
+
+SELECT status, count(*)
+FROM asset
+--WHERE (asset.classstructureid IN ('1238', '1243')
+--    OR upper(asset.ex_model) LIKE '%SURFACE%')
+GROUP BY status
+ORDER BY count(*) DESC;
 
 
 /*******************************************************************************
@@ -355,12 +378,12 @@ ORDER BY asset.changeby, asset.changedate desc;
 *******************************************************************************/
 
 
-select asset.classstructureid, CLASSSTRUCTURE.CLASSIFICATIONID, ASSET.DESCRIPTION, count(*)
+select asset.classstructureid, CLASSSTRUCTURE.CLASSIFICATIONID, CLASSSTRUCTURE.DESCRIPTION, ASSET.DESCRIPTION, count(*)
 from asset
   join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID
 where ASSET.STATUS in ('IN STOCK', 'DEPLOYED')
-group by asset.classstructureid, CLASSSTRUCTURE.CLASSIFICATIONID, ASSET.DESCRIPTION
-order by CLASSSTRUCTURE.CLASSIFICATIONID, ASSET.DESCRIPTION;
+group by asset.classstructureid, CLASSSTRUCTURE.CLASSIFICATIONID, CLASSSTRUCTURE.DESCRIPTION, ASSET.DESCRIPTION
+order by CLASSSTRUCTURE.CLASSIFICATIONID, count(*) desc;
 
 select ',='||assetnum, assetnum, assettag, CLASSSTRUCTURE.CLASSIFICATIONID, ASSET.DESCRIPTION, ASSET.ITEMNUM
 from asset
@@ -369,14 +392,25 @@ where ASSET.STATUS in ('IN STOCK', 'DEPLOYED')
   and CLASSSTRUCTURE.CLASSIFICATIONID = 'DESKTOP'
   and ASSET.DESCRIPTION != 'Computer, Desktop';
 
+/*******************************************************************************
+*  Changes to Assetspecs
+*******************************************************************************/
+
+select assetnum, assetattrid, alnvalue, NUMVALUE, changeby, changedate, createddate, removeddate
+from ASSETSPECHIST
+where 1=1
+--  and assetnum in (select assetnum from assetspechist where changeby = 'BDENSMOR' and changedate >= sysdate - 1)
+  and assetnum = '2971' 
+order by assetnum, assetattrid
+;
 
 /*******************************************************************************
 *  Potentially invalid classifications
 *******************************************************************************/
 
 --Details
-select ',='||asset.assetnum, asset.assetnum, asset.assettag, CLASSSTRUCTURE.CLASSIFICATIONID, 
-  asset.CHANGEBY, asset.CHANGEDATE
+select ',='||asset.assetnum, asset.assetnum, asset.assettag, asset.description, 
+  CLASSSTRUCTURE.CLASSIFICATIONID, asset.CHANGEBY, asset.CHANGEDATE
 from asset
   left join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = asset.CLASSSTRUCTUREID
 where CLASSSTRUCTURE.CLASSIFICATIONID not in 
@@ -484,6 +518,18 @@ where exists (select 1
   and ASSET.location != 'MOBILEDEVICE'
 ;
 
+/*******************************************************************************
+*  Unclassified locations
+*******************************************************************************/
+
+select ',='||locations.location, locations.location, LOCATIONS.DESCRIPTION, locations.status, CLASSSTRUCTURE.CLASSIFICATIONID LOC_CLASS,
+  (select count(*) from person where person.location = locations.location and person.status = 'ACTIVE') PERSON_COUNT,
+  (select count(*) from asset where asset.location = locations.location and asset.status not in ('DISPOSED', 'DECOMMISSIONED')) ASSET_COUNT
+from locations
+  left join classstructure on LOCATIONS.CLASSSTRUCTUREID = CLASSSTRUCTURE.CLASSSTRUCTUREID
+where CLASSSTRUCTURE.CLASSIFICATIONID is null
+--  and LOCATIONS.STATUS not in ('OPERATING', 'DEPLOYED')
+;
 
 /*******************************************************************************
 *  Assets with duplicate asset tag or serial numbers
@@ -611,9 +657,57 @@ order by CLASSSTRUCTURE.CLASSIFICATIONID, asset.CHANGEBY;
 *  Active asset with decommissioned CI
 *******************************************************************************/
 
-select ',='||asset.assetnum assetnum, asset.assetnum, asset.assettag,CLASSSTRUCTURE.CLASSIFICATIONID, asset.CHANGEBY, asset.CHANGEDATE
+select ',='||asset.assetnum assetnum, asset.assetnum, asset.assettag,CLASSSTRUCTURE.CLASSIFICATIONID, asset.CHANGEBY, asset.CHANGEDATE,
+  cinum, ciname, CI.CHANGEBY CI_CHANGEBY, CI.CHANGEDATE CI_CHANGEDATE, ci.status CI_STATUS
 from asset
   left join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = asset.CLASSSTRUCTUREID
+  left join ci on CI.ASSETNUM = ASSET.ASSETNUM
 where exists (select 1 from ci where ci.status != 'OPERATING' and ci.assetnum = asset.assetnum)
   and asset.status in ('IN STOCK', 'DEPLOYED')
 order by CLASSSTRUCTURE.CLASSIFICATIONID, asset.CHANGEBY;
+
+
+/*******************************************************************************
+*  Assets with Manufacturer not in Manufacturer list
+*******************************************************************************/
+
+select assetnum, manufacturer
+from asset
+where manufacturer is not null
+  and not exists
+    (select 1
+    from companies
+    where companies.type = 'M'
+      and companies.company = asset.manufacturer);
+
+
+/*******************************************************************************
+*  List of Makes/Models, by classification
+*******************************************************************************/
+
+select CLASSSTRUCTURE.CLASSIFICATIONID || '(' || CLASSSTRUCTURE.DESCRIPTION || ')' CLASSIFICATION, ASSET.MANUFACTURER, ASSET.EX_MODEL, count(*) ASSET_COUNT
+from asset
+  left join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = ASSET.CLASSSTRUCTUREID
+where CLASSSTRUCTURE.CLASSIFICATIONID not in ('DESKTOP', 'CONFPHONE', 'PROJECTORSYS', 'FAX', 'VIRTDESKTOP', 'UPS', 'PRINTER', 'TABLET',
+  'DESKPHONE', 'AUDIOVISUAL', 'LAPTOP', 'SMARTPHONE', 'MOBILEDATA', 'MOBILEPHONE')
+  and asset.status not in ('DECOMMISSIONED', 'DISPOSED')
+group by CLASSSTRUCTURE.CLASSIFICATIONID || '(' || CLASSSTRUCTURE.DESCRIPTION || ')', ASSET.MANUFACTURER, ASSET.EX_MODEL
+order by CLASSSTRUCTURE.CLASSIFICATIONID || '(' || CLASSSTRUCTURE.DESCRIPTION || ')', ASSET.MANUFACTURER, ASSET.EX_MODEL;
+
+
+select *
+from CLASSSTRUCTURE
+where CLASSSTRUCTURE.CLASSIFICATIONID in ('DESKTOP', 'TABLET','LAPTOP', 'SMARTPHONE', 'MOBILEDATA', 'MOBILEPHONE')
+;
+
+
+select ticketid, createdby
+from ticket
+where exists
+  (select TICKETS.ticketid, TICKETS.CREATEDBY, PERSON.OWNERGROUP CREATEDBY_DEFAULT_GROUP, TICKETS.CREATIONDATE
+  from ticket TICKETS
+    left join person on person.personid = TICKETS.createdby
+  where trunc(TICKETS.creationdate, 'MON') = add_months(trunc(sysdate, 'MON'), -1)
+    and person.ownergroup = 'SERVICE DESK'
+    and TICKETS.ticketid = :ticketid);
+  

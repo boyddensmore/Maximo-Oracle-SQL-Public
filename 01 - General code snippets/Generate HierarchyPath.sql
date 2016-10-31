@@ -2,11 +2,13 @@
 *  New way, not fully tested
 *******************************************************************************/
 
-select CLASSIFICATIONID, CLASSSTRUCTUREID, CONNECT_BY_ROOT CLASSSTRUCTUREID ROOT, PARENT, LEVEL, sys_connect_by_path(CLASSIFICATIONID, '\') "HIERARCHYPATH"
+select CLASSSTRUCTURE.CLASSIFICATIONID, CLASSSTRUCTURE.CLASSSTRUCTUREID, CONNECT_BY_ROOT CLASSSTRUCTURE.CLASSSTRUCTUREID ROOT, 
+  CLASSSTRUCTURE.PARENT, LEVEL, sys_connect_by_path(CLASSSTRUCTURE.CLASSIFICATIONID, '\') "HIERARCHYPATH"
 from CLASSSTRUCTURE
-START WITH CLASSSTRUCTUREID = '1040'
-connect by nocycle prior CLASSSTRUCTUREID = PARENT
-order by sys_connect_by_path(CLASSIFICATIONID, '\');
+where exists (select 1 from classusewith where classusewith.objectname = 'WOCHANGE' and CLASSUSEWITH.CLASSSTRUCTUREID = CLASSSTRUCTURE.CLASSSTRUCTUREID)
+--START WITH CLASSSTRUCTUREID = '1040'
+connect by nocycle prior CLASSSTRUCTURE.CLASSSTRUCTUREID = CLASSSTRUCTURE.PARENT
+order by sys_connect_by_path(CLASSSTRUCTURE.CLASSIFICATIONID, '\');
 
 
 /*******************************************************************************

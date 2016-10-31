@@ -202,3 +202,63 @@ FROM asset
 ORDER BY asset.assetnum;
 
 
+/*******************************************************************************
+*  Rollups
+*  
+*******************************************************************************/
+
+SELECT 
+  grouping(CASE WHEN assetcustodian.personid IS NULL THEN assetuser.company ELSE assetcustodian.company END) company_GRP,
+  grouping(CASE WHEN assetcustodian.personid IS NULL THEN assetuser.ex_businessunit ELSE assetcustodian.ex_businessunit END) businessunit_GRP,
+  grouping(CASE WHEN assetcustodian.personid IS NULL THEN assetuser.department ELSE assetcustodian.department END) department_GRP,
+  grouping(CASE WHEN assetcustodian.personid IS NULL THEN assetuser.deptdesc ELSE assetcustodian.deptdesc END) deptdesc_GRP,
+  grouping(classstructure.classificationid) CLASS_GRP,
+  grouping(asset.manufacturer) manuf_GRP, 
+  grouping(asset.ex_model) MODEL_GRP,
+  
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.company ELSE assetcustodian.company END selected_company,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.ex_businessunit ELSE assetcustodian.ex_businessunit END selected_businessunit,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.department ELSE assetcustodian.department END selected_department,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.deptdesc ELSE assetcustodian.deptdesc END selected_deptdesc,
+  classstructure.classificationid ASSET_CLASS, asset.manufacturer, asset.ex_model,
+  count(*)
+FROM asset
+  JOIN classstructure ON asset.classstructureid = classstructure.classstructureid
+  join locations on LOCATIONS.LOCATION = ASSET.LOCATION
+  left join CLASSSTRUCTURE LOCCLASS on LOCATIONS.CLASSSTRUCTUREID = LOCCLASS.CLASSSTRUCTUREID
+  LEFT JOIN
+  (SELECT asset.assetnum, person.personid, person.company, person.ex_businessunit, person.department, person.deptdesc, PERSON.SUPERVISOR, person.status, assetusercust.isuser, assetusercust.isprimary, assetusercust.iscustodian
+  FROM asset
+    LEFT JOIN assetusercust ON assetusercust.assetnum = asset.assetnum
+    LEFT JOIN person ON person.personid = assetusercust.personid
+    JOIN classstructure ON asset.classstructureid = classstructure.classstructureid
+  WHERE (classstructure.classificationid IN ('DESKTOP', 'LAPTOP', 'VIRTDESKTOP')
+    OR upper(asset.ex_model) LIKE '%SURFACE%')
+    AND assetusercust.iscustodian = 1
+  ORDER BY asset.assetnum) assetcustodian ON assetcustodian.assetnum = asset.assetnum
+  LEFT JOIN
+  (SELECT asset.assetnum,person.personid, person.company, person.ex_businessunit, person.department, person.deptdesc, PERSON.SUPERVISOR, person.status, assetusercust.isuser, assetusercust.isprimary, assetusercust.iscustodian
+  FROM asset
+    LEFT JOIN assetusercust ON assetusercust.assetnum = asset.assetnum
+    LEFT JOIN person ON person.personid = assetusercust.personid
+    JOIN classstructure ON asset.classstructureid = classstructure.classstructureid
+  WHERE (classstructure.classificationid IN ('DESKTOP', 'LAPTOP', 'VIRTDESKTOP')
+    OR upper(asset.ex_model) LIKE '%SURFACE%')
+    AND assetusercust.isuser = 1
+  ORDER BY asset.assetnum) assetuser ON assetuser.assetnum = asset.assetnum
+WHERE (classstructure.classificationid IN ('DESKTOP', 'LAPTOP', 'VIRTDESKTOP')
+    OR upper(asset.ex_model) LIKE '%SURFACE%')
+  AND asset.status IN ('DEPLOYED')
+-- + whereText
+group by rollup
+  (CASE WHEN assetcustodian.personid IS NULL THEN assetuser.company ELSE assetcustodian.company END,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.ex_businessunit ELSE assetcustodian.ex_businessunit END,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.department ELSE assetcustodian.department END,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.deptdesc ELSE assetcustodian.deptdesc END,
+  classstructure.classificationid, asset.manufacturer, asset.ex_model)
+order by
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.company ELSE assetcustodian.company END,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.ex_businessunit ELSE assetcustodian.ex_businessunit END,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.department ELSE assetcustodian.department END,
+  CASE WHEN assetcustodian.personid IS NULL THEN assetuser.deptdesc ELSE assetcustodian.deptdesc END,
+  classstructure.classificationid, asset.manufacturer, asset.ex_model;
