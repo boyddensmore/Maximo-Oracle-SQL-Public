@@ -3,12 +3,21 @@
 *  a script (F5 in SQL Developer) and check the script output for all details.
 *******************************************************************************/
 
+select userid, displayname
+from maxuser
+  left join PERSON on person.personid = MAXUSER.PERSONID
+where userid like 'U%%';
 define USERID = "'[[USERNAME]]'";
 
 --Find all security groups a user is in
 select Groupuser.Userid, Groupuser.Groupname
 from groupuser
 where Groupuser.Userid = &USERID;
+
+-- What groups grant access to template
+select GROUPNAME, DESCRIPTION, SCTEMPLATEID
+from MAXGROUP
+where SCTEMPLATEID = 3;
 
 --Find all person groups a user is in
 select Persongroupteam.Respparty, Persongroupteam.Persongroup, ',=' || Persongroupteam.Persongroup

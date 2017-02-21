@@ -13,6 +13,7 @@ select
   TO_CHAR(REPORTDATE, 'dd-MON-yy hh24:mi:ss'), 
   TO_CHAR(REPORTDATE, 'DL') DATELONG, 
   TO_CHAR(REPORTDATE, 'DAY') DAYOFWEEK, 
+  TO_CHAR(REPORTDATE, 'D') DAYNUMOFWEEK, 
   TO_CHAR(REPORTDATE, 'DS') DATESHORT, 
 --  Trunc to minute
   TO_CHAR(trunc(REPORTDATE,'mi'), 'dd-MON-yy hh24:mi:ss') MINUTE, 
@@ -77,10 +78,10 @@ order by years;
 *  List last X months
 *******************************************************************************/
 
-SELECT to_char(add_months(SYSDATE, (LEVEL-1 )),'Mon-yy') as months 
-  FROM dual 
-<<<<<<< HEAD
-CONNECT BY LEVEL <= 6;
-=======
-CONNECT BY LEVEL <= 6
->>>>>>> f43e630a8cd9c63eaf3ac059379442af11df2ac8
+select to_char(months, 'Month yyyy')
+from
+  (SELECT add_months(SYSDATE, (LEVEL-7)) as months 
+    FROM dual
+  CONNECT BY LEVEL <= 24
+  order by months asc)
+;

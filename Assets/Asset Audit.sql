@@ -150,25 +150,6 @@ where USR_CNT.USER_err_COUNT > 1;
 
 
 /*******************************************************************************
-*  Assets with more than one Custodian
-*******************************************************************************/
-
-select ASSET.ASSETNUM, count(*)
-from ASSET
-  join ASSETUSERCUST ASSETCUST on (ASSETCUST.ASSETNUM = ASSET.ASSETNUM and ASSETCUST.ISCUSTODIAN = 1)
-where asset.classstructureid in (select classstructureid
-                                from classstructure
-                                where classstructureid in (select classstructureid from MAXIMO.classusewith where objectvalue = 'ASSET')
-                                  and (upper(description) like '%DESKTOP%'
-                                    or upper(description) like '%LAPTOP%'
-                                    or upper(description) like '%TABLET%'
-                                    or upper(description) like '%SMART PHONE%'
-                                    or upper(description) like '%MOBILE PHONE%'))
-group by ASSET.ASSETNUM
-order by count(*) desc;
-
-
-/*******************************************************************************
 *  People with null Company, BU, and Dept
 *******************************************************************************/
 
@@ -400,7 +381,7 @@ select assetnum, assetattrid, alnvalue, NUMVALUE, changeby, changedate, createdd
 from ASSETSPECHIST
 where 1=1
 --  and assetnum in (select assetnum from assetspechist where changeby = 'BDENSMOR' and changedate >= sysdate - 1)
-  and assetnum = '2971' 
+--  and assetnum = '2971' 
 order by assetnum, assetattrid
 ;
 

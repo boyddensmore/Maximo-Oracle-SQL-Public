@@ -9,6 +9,51 @@
 
 
 /*******************************************************************************
+*  Changes with outstanding CI update tasks
+*******************************************************************************/
+
+select 
+  WOCHANGE.WONUM, 
+  WOCHANGE.owner, 
+  WOCHANGE.ownergroup,
+  WOCHANGE.SCHEDFINISH, 
+  WOCHANGE.DESCRIPTION CHANGE_DESC, 
+  WFASSIGNMENT.ORIGPERSON,
+  WFASSIGNMENT.DESCRIPTION ASSGN_DESC,
+  WFASSIGNMENT.DUEDATE ASSIGNMENT_DUEDATE,
+  assignee.status assignee_status,
+  WORKLOG.LOGTYPE,
+  WORKLOG.CREATEDATE LOG_DATE,
+  WORKLOG.DESCRIPTION LOG_DESCRIPTION,
+  REGEXP_REPLACE(Longdescription.Ldtext,'<[^>]*>',' ') WORKLOG_LONG_DESCRIPTION,
+  WORKLOG.MODIFYBY LOG_BY,
+  commlog.createdate COMM_CREATEDATE,
+  commlog.sendto COMM_SENDTO,
+  commlog.sendfrom COMM_SENDFROM,
+  commlog.subject COMM_SUBJECT
+from WFASSIGNMENT
+  join WOCHANGE on WFASSIGNMENT.OWNERID = WOCHANGE.WORKORDERID
+  join person assignee on assignee.personid = WFASSIGNMENT.ASSIGNCODE
+  join WORKLOG on (worklog.worklogid = (select max(worklogid) from worklog where recordkey = wochange.wonum))
+  join COMMLOG on (commlog.commlogid = (select max(commlogid) from commlog where ownertable = 'CHANGE' and ownerid = wochange.workorderid))
+  left join longdescription on (longdescription.ldownertable = 'WORKLOG' and longdescription.ldownercol = 'DESCRIPTION' and longdescription.ldkey = WORKLOG.WORKLOGID)
+where WFASSIGNMENT.APP = 'CHANGE'
+  and WFASSIGNMENT.ASSIGNSTATUS not in ('COMPLETE', 'FORWARDED', 'INACTIVE')
+    and WOCHANGE.STATUS in ('REVIEW', 'REVIEW_RETURNED')
+    and WFASSIGNMENT.DESCRIPTION in ('Change Owner to Update CI', 'Configuration Manager to review CI details')
+order by WFASSIGNMENT.DUEDATE asc;
+
+select *
+-- REGEXP_REPLACE(Longdescription.Ldtext,'<[^>]*>',' ') LONG_DESCRIPTION
+from LONGDESCRIPTION
+where ldownertable = 'WORKLOG'
+  and ldownercol = 'DESCRIPTION'
+  and ldkey = 23;
+  
+select *
+from worklog;
+
+/*******************************************************************************
 *  CIs with no relationships
 *******************************************************************************/
 
@@ -19,23 +64,85 @@ from ci
   join person on PERSON.PERSONID = CI.CHANGEBY
   left join (select cinum, assetattrid, alnvalue ENVIRONMENT from cispec where cispec.assetattrid = 'ENVIRONMENT') ENVIRONMENT on ENVIRONMENT.CINUM = ci.cinum
 where 
-  ci.status in 'OPERATING'
+  ci.status not in 'DECOMMISSIONED'
   and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.COMPUTERSYSTEMCLUSTER', 'CI.MSSQLSCHEMA', 
     'CI.ORACLESCHEMA', 'CI.SQLSERVERDATABASE', 'CI.SOFTWAREPRODUCT', 'CI.PHYSICALCOMPUTERSYSTEM', 
     'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION')
+  and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.VIRTUALCOMPUTERSYSTEM')
   and not exists 
     (select 1
     from CIRELATION
     where sourceci = ci.cinum or targetci = ci.cinum)
+  and ci.CHANGEBY != 'BDENSMOR'
+order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
+
+
+/*******************************************************************************
+*  VirtualComputerSystems with no related cluster or Hosting_subscription
+*******************************************************************************/
+
+select ', =' || ci.cinum, ci.ciname, CI.ASSETNUM, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
+  ENVIRONMENT.ENVIRONMENT, 
+  VM_CLUSTER.CLUSTERNAME, HS_ATTR.subscription
+--  ci.CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, person.ownergroup, CI.CHANGEDATE
+from ci
+  join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+  join person on PERSON.PERSONID = CI.CHANGEBY
+  left join (select cinum, assetattrid, alnvalue ENVIRONMENT from cispec where cispec.assetattrid = 'ENVIRONMENT') ENVIRONMENT on ENVIRONMENT.CINUM = ci.cinum
+  left join
+    (select cinum, assetattrid, alnvalue subscription
+      from cispec
+      where ASSETATTRID = 'HOSTING_SUBSCRIPTION' and alnvalue is not null) HS_ATTR on HS_ATTR.cinum = ci.cinum
+  left join
+    (select CIRELATION.sourceci cinum, targetci.ciname CLUSTERNAME
+    from CIRELATION
+      join ci targetci on targetci.cinum = cirelation.targetci
+      join CLASSSTRUCTURE TGTCLASS on TGTCLASS.CLASSSTRUCTUREID = targetci.CLASSSTRUCTUREID
+    where TGTCLASS.CLASSIFICATIONID in ('CI.COMPUTERSYSTEMCLUSTER')) VM_CLUSTER on VM_CLUSTER.cinum = ci.cinum
+where
+  ci.status not in 'DECOMMISSIONED'
+  and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.VIRTUALCOMPUTERSYSTEM')
+  and VM_CLUSTER.CLUSTERNAME is null and HS_ATTR.subscription is null
+--  and ci.CHANGEBY != 'BDENSMOR'
 order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
 
 
 
 /*******************************************************************************
+*  Decommissioned CIs with relationships
+*******************************************************************************/
+
+select ', =' || ci.cinum, ci.ciname, CI.ASSETNUM, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
+  ENVIRONMENT.ENVIRONMENT, ci.CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, person.ownergroup, CI.CHANGEDATE
+from ci
+  join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+  join person on PERSON.PERSONID = CI.CHANGEBY
+  left join (select cinum, assetattrid, alnvalue ENVIRONMENT from cispec where cispec.assetattrid = 'ENVIRONMENT') ENVIRONMENT on ENVIRONMENT.CINUM = ci.cinum
+where 
+  ci.status = 'DECOMMISSIONED'
+  and exists 
+    (select 1
+    from CIRELATION
+    where sourceci = ci.cinum or targetci = ci.cinum)
+  and ci.CHANGEBY != 'BDENSMOR'
+order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
+
+
+select count(*)
+from cirelation
+where exists
+  (select 1
+  from ci
+  where ci.status = 'DECOMMISSIONED' 
+    and (ci.cinum = cirelation.targetci or ci.cinum = cirelation.sourceci));
+
+/*******************************************************************************
 *  CIs with no classification
 *******************************************************************************/
 
-select ', =' || ci.cinum, ci.cinum, ci.ciname, ci.status, ci.description, CI.CHANGEBY, PERSON.OWNERGROUP, CI.CHANGEDATE, A_CI.EAUDITTIMESTAMP, A_CI.EAUDITTYPE, A_CI.EAUDITUSERNAME, A_CI.CINAME PREV_NAME
+select ', =' || ci.cinum, ci.cinum, ci.ciname, ci.status, ci.description, 
+  CI.CHANGEBY, PERSON.OWNERGROUP, 
+  CI.CHANGEDATE, A_CI.EAUDITTIMESTAMP, A_CI.EAUDITTYPE, A_CI.EAUDITUSERNAME, A_CI.CINAME PREV_NAME
 from ci
   join person on CI.CHANGEBY = PERSON.PERSONID
   left join a_ci on (CI.CINUM = A_CI.CINUM)
@@ -108,20 +215,20 @@ from CI
   join classstructure on classstructure.classstructureid = ci.classstructureid
   join CIspec on CIspec.cinum = CI.cinum
 where 1=1
-  and ( 1=0
-    OR (classstructure.classificationid = 'CI.COMPUTERSYSTEMCLUSTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
-    or (classstructure.classificationid = 'CI.MSSQLSCHEMA' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
-    or (classstructure.classificationid = 'CI.FIREWALL' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
-    or (classstructure.classificationid = 'CI.ORACLEDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'ORACLEDATABASE_DBVERSION'))
-    or (classstructure.classificationid = 'CI.ORACLESCHEMA' and CIspec.ASSETATTRID in ('VERSION'))
-    or (classstructure.classificationid = 'CI.PHYSICALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
-    or (classstructure.classificationid = 'CI.RACK' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
-    or (classstructure.classificationid = 'CI.ROUTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
-    or (classstructure.classificationid = 'CI.SOFTWAREINSTALLATION' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'APPLICATION_TYPE', 'MANUFACTURER', 'SUPPORTHOURS', 'VERSION'))
-    or (classstructure.classificationid = 'CI.SOFTWAREPRODUCT' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
-    or (classstructure.classificationid = 'CI.SQLSERVERDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
-    or (classstructure.classificationid = 'CI.VIRTUALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'IPNETWORK_NAME', 'MAINTENANCE_WINDOW', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
-  )
+--  and ( 1=0
+--    OR (classstructure.classificationid = 'CI.COMPUTERSYSTEMCLUSTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.MSSQLSCHEMA' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.FIREWALL' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.ORACLEDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'ORACLEDATABASE_DBVERSION'))
+--    or (classstructure.classificationid = 'CI.ORACLESCHEMA' and CIspec.ASSETATTRID in ('VERSION'))
+--    or (classstructure.classificationid = 'CI.PHYSICALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
+--    or (classstructure.classificationid = 'CI.RACK' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.ROUTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+--    or (classstructure.classificationid = 'CI.SOFTWAREINSTALLATION' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'APPLICATION_TYPE', 'MANUFACTURER', 'SUPPORTHOURS', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.SOFTWAREPRODUCT' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.SQLSERVERDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
+--    or (classstructure.classificationid = 'CI.VIRTUALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'IPNETWORK_NAME', 'MAINTENANCE_WINDOW', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
+--  )
   and classstructure.classificationid not in ('CI.BUSINESSSERVICE', 'CI.DNSSERVICE', 'CI.GENERIC_COMPUTERSYSTEM', 'CI.INFRASERVICE', 
                                               'CI.LDAPSERVICE', 'CI.NETWORKSERVICE', 'CI.SERVICE', 'CI.SYSTEMCONTROLLER', 'CI.TAPELIBRARY', 'CI.UPS', 'CI.WEBSERVICE')
 --  and alnvalue is null
@@ -140,7 +247,7 @@ order by
 *******************************************************************************/
 
 select ',='||ci.cinum cinum, ci.ciname, classstructure.classificationid, 
-  ci.changeby, ci.changedate, CICOUNT.cicount
+  ci.changeby, ci.changedate, CICOUNT.cicount, specs.speccount, CIREL1.relcount + CIREL2.relcount RELCOUNT
 from ci
   join classstructure on classstructure.classstructureid = ci.classstructureid
   left join
@@ -149,6 +256,9 @@ from ci
     join classstructure on classstructure.classstructureid = ci.classstructureid
   where CI.STATUS != 'DECOMMISSIONED'
   group by ciname) CICOUNT on CI.CINAME = CICOUNT.CINAME
+  left join (select cinum, count(*) SPECCOUNT from cispec where (alnvalue is not null or numvalue is not null) group by cinum) SPECS on specs.cinum = ci.cinum
+  left join (select sourceci cinum, count(*) RELCOUNT from cirelation group by sourceci) CIREL1 on CIREL1.cinum = ci.cinum
+  left join (select targetci cinum, count(*) RELCOUNT from cirelation group by targetci) CIREL2 on CIREL2.cinum = ci.cinum
 where CICOUNT.CICOUNT > 1
 order by ci.ciname, ci.cinum;
 
@@ -216,16 +326,17 @@ order by asset.assetnum;
 *  Relationships to/from inactive CIs
 *******************************************************************************/
 
-select SOURCECI.STATUS src_status, SRC_CLASS.CLASSIFICATIONID src_class, SOURCECI.CINAME src_ciname,
+select ', =' || SOURCECI.cinum source_cinum, SOURCECI.STATUS src_status, SRC_CLASS.CLASSIFICATIONID src_class, SOURCECI.CINAME src_ciname,
   CIRELATION.RELATIONNUM, 
-  TARGETCI.STATUS tgt_status, TGT_CLASS.CLASSIFICATIONID tgt_class, TARGETCI.CINAME tgt_ciname
+  TARGETCI.cinum target_cinum, TARGETCI.STATUS tgt_status, TGT_CLASS.CLASSIFICATIONID tgt_class, TARGETCI.CINAME tgt_ciname
 from CIRELATION
   join ci sourceci on SOURCECI.CINUM = CIRELATION.SOURCECI
   left join CLASSSTRUCTURE src_class on src_class.CLASSSTRUCTUREID = SOURCECI.CLASSSTRUCTUREID
   join ci targetci on TARGETCI.CINUM = CIRELATION.TARGETCI
   left join classstructure tgt_class on TGT_CLASS.CLASSSTRUCTUREID = TARGETCI.CLASSSTRUCTUREID
 where SOURCECI.STATUS = 'DECOMMISSIONED'
-  or TARGETCI.STATUS = 'DECOMMISSIONED';
+  or TARGETCI.STATUS = 'DECOMMISSIONED'
+order by SOURCECI.STATUS, sourceci.cinum;
 
 
 /*******************************************************************************
@@ -240,9 +351,9 @@ from cispec
   left join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID
   join ci on CISPEC.CINUM = CI.CINUM
 where 1=1
---  and not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
-  and CLASSSTRUCTURE.DESCRIPTION in ('CI.MSSQLSCHEMA')
-  and CISPEC.ASSETATTRID in ('MANUFACTURER')
+  and not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
+--  and CLASSSTRUCTURE.DESCRIPTION in ('CI.MSSQLSCHEMA')
+--  and CISPEC.ASSETATTRID in ('MANUFACTURER')
 --  and CISPEC.ALNVALUE != 'Microsoft'
 --  and CISPEC.CHANGEBY not in ('MXINTADM')
 --group by CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID

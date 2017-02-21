@@ -119,7 +119,9 @@ where 1=1
 --  and CORE_DATA.ROOT_CI like 'MAXIMO%'
 --  and lvl = 1
 --  and root_impact = 1
---  and (src_impact > ROOT_IMPACT or SRC_CALNUM > ROOT_CALNUM)
+--  and (LEAF_impact > ROOT_IMPACT or LEAF_CALNUM > ROOT_CALNUM)
+--  and LEAF_CLASS in ('CI.VIRTUALCOMPUTERSYSTEM', 'CI.COMPUTERSYSTEMCLUSTER')
+--  and (LEAF_ENVIRONMENT is null or LEAF_ENVIRONMENT not in ('DEV', 'QA'))
 --  and ROOT_CLASS not in ('CI.COMPUTERSYSTEMCLUSTER', 'CI.MSSQLSCHEMA', 'CI.VIRTUALCOMPUTERSYSTEM')
 order by ROOT_CLASS, ROOT_CI, CIHIERARCHY
 ;
@@ -132,8 +134,8 @@ order by ROOT_CLASS, ROOT_CI, CIHIERARCHY
 *******************************************************************************/
 
 select 
-  case when LEAF_impact <= ROOT_IMPACT then 'OK' else 'NOT OK' end IMPACT_CHAIN_OK,
-  case when LEAF_CALNUM <= ROOT_CALNUM then 'OK' else 'NOT OK' end CAL_CHAIN_OK,
+  case when ROOT_IMPACT <= LEAF_IMPACT then 'OK' else 'NOT OK' end IMPACT_CHAIN_OK,
+  case when ROOT_CALNUM <= LEAF_CALNUM then 'OK' else 'NOT OK' end CAL_CHAIN_OK,
   CORE_DATA.*
 from (
   select 
@@ -185,7 +187,7 @@ where 1=1
 --  and CORE_DATA.ROOT_CI like 'LXSRV024'
 --  and lvl = 1
 --  and root_impact = 1
-  and (LEAF_impact > ROOT_IMPACT or LEAF_CALNUM > ROOT_CALNUM)
+  and (ROOT_IMPACT > LEAF_IMPACT or ROOT_CALNUM > LEAF_CALNUM)
   and ROOT_CLASS in ('CI.COMPUTERSYSTEMCLUSTER', 'CI.MSSQLSCHEMA', 'CI.ORACLESCHEMA', 'CI.VIRTUALCOMPUTERSYSTEM', 
                       'CI.PHYSICALCOMPUTERSYSTEM', 'CI.STORAGEARRAY', 'CI.STORAGEVOLUME', 'CI.SWITCH', 'CI.WINDOWSFILESYSTEM', 'VMware Data Store')
 order by ROOT_CLASS, ROOT_CI, CIHIERARCHY

@@ -79,3 +79,38 @@ order by trunc(transdate, 'MON'),
   end,
   count(*) desc
 ;
+
+
+/*******************************************************************************
+*  Change workflow details - Time spent on tasks
+*******************************************************************************/
+
+select 
+--  ACT_BY_PERSON.OWNERGROUP, count(*) CNT
+  wochange.wonum, wochange.status, WOCHANGE.DESCRIPTION, WOCHANGE.PMCHGTYPE, WOCHANGE.PMCHGCAT, WOCHANGE.EX_REASONFORCHANGELIST,
+  to_char(wochange.schedstart, 'dd-MON-yyyy hh24:mi:ss') schedstart, to_char(wochange.schedfinish, 'dd-MON-yyyy hh24:mi:ss') schedfinish,
+  wochange.ownergroup, wochange.owner,
+  case when (wfnode.TITLE like '%AUTH') then 'AUTH' else 
+    case when (wfnode.title like 'SCHEDUL%') then 'SCHEDULE' else wfnode.TITLE end
+  end TASK_TITLE,
+  wfassignment.description ASSIGNMENT_DESCRIPTION, wfassignment.assigncode ASSIGNED_PERSON, to_char(wfassignment.startdate, 'dd-MON-yyyy hh24:mi:ss') assignment_startdate,
+  to_char(wfassignment.startdate, 'DAY') assignment_start_DOW,
+  to_char(WFTRANSACTION.transdate, 'dd-MON-yyyy hh24:mi:ss') assignment_completedate, 
+  to_char(WFTRANSACTION.transdate, 'DAY') assignment_complete_DOW, WFTRANSACTION.memo, WFTRANSACTION.personid ACTIONED_BY_PERSON,
+  ACT_BY_PERSON.OWNERGROUP ACTIONED_BY_PERSON_GROUP,
+  round((WFTRANSACTION.transdate - wfassignment.startdate) * 24, 2) hours_to_action
+from wochange
+  join wfassignment on wochange.workorderid = wfassignment.ownerid
+  join WFTRANSACTION on WFTRANSACTION.ASSIGNID = WFASSIGNMENT.ASSIGNID
+  join person ACT_BY_PERSON on wftransaction.personid = ACT_BY_PERSON.personid
+  join wfprocess on (WFPROCESS.PROCESSNAME = WFASSIGNMENT.PROCESSNAME and WFPROCESS.active = 1)
+  join wfnode on (WFNODE.NODEID = WFASSIGNMENT.NODEID and WFNODE.PROCESSREV = WFASSIGNMENT.PROCESSREV and WFNODE.PROCESSNAME = WFASSIGNMENT.PROCESSNAME)
+where wftransaction.transtype = 'WFASSIGNCOMP'
+  and wochange.SCHEDFINISH >= sysdate - 60
+  and wochange.status not in ('CAN')
+  and (wfnode.TITLE in ('ASSESS', 'SCHEDULING', 'SCHEDULE') or wfnode.TITLE like '@%AUTH%')
+  and wfassignment.description not like 'Approve or Reject Change % (CAB)'
+--group by ACT_BY_PERSON.OWNERGROUP
+--order by count(*) desc
+order by wochange.workorderid, wochange.wonum, 
+;

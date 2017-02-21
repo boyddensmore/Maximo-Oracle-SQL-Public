@@ -33,3 +33,9 @@ order by
 --  case when (trunc(creationdate, 'MON') between to_date('01-JAN-2016 00:00:00', 'dd-MON-yyyy hh24:mi:ss') and to_date('01-APR-2016 00:00:00', 'dd-MON-yyyy hh24:mi:ss')) then INFERRED_GROUP.ownergroup else person.ownergroup end, 
 --  person.ownergroup,
   person.displayname, trunc(creationdate, 'MON'), ticket.class;
+
+select trunc(creationdate, 'MON'), case when (EX_CREATEDBYOWNRGRP = 'SERVICE DESK') then 'SERVICE DESK' else 'NOT SERVICE DESK' end CREATED_BY_TEAM, count(*)
+from ticket
+where trunc(creationdate, 'MON') between to_date('01-OCT-2016 00:00:00', 'dd-MON-yyyy hh24:mi:ss') and to_date('01-JAN-2017 00:00:00', 'dd-MON-yyyy hh24:mi:ss')
+  and EX_CREATEDBYOWNRGRP not like 'TCS%'
+order by trunc(creationdate, 'MON') asc, case when (EX_CREATEDBYOWNRGRP = 'SERVICE DESK') then 'SERVICE DESK' else 'NOT SERVICE DESK' end desc;
