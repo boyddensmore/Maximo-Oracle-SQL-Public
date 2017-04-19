@@ -68,20 +68,51 @@ where
   and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.COMPUTERSYSTEMCLUSTER', 'CI.MSSQLSCHEMA', 
     'CI.ORACLESCHEMA', 'CI.SQLSERVERDATABASE', 'CI.SOFTWAREPRODUCT', 'CI.PHYSICALCOMPUTERSYSTEM', 
     'CI.VIRTUALCOMPUTERSYSTEM', 'CI.SOFTWAREINSTALLATION')
-  and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.VIRTUALCOMPUTERSYSTEM')
   and not exists 
     (select 1
     from CIRELATION
     where sourceci = ci.cinum or targetci = ci.cinum)
-  and ci.CHANGEBY != 'BDENSMOR'
-order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
+--  and ci.CHANGEBY != 'BDENSMOR'
+order by CLASSSTRUCTURE.CLASSIFICATIONID, person.ownergroup, ci.ciname;
 
+
+/*******************************************************************************
+*  Server CIs with nothing running on them
+*******************************************************************************/
+
+select ci.cinum, ci.ciname, CI.ASSETNUM, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
+  ENVIRONMENT.ENVIRONMENT, ci.CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, person.ownergroup CHANGEBY_GROUP, CI.CHANGEDATE,
+  (select count(*) from CIRELATIONHIS where relationnum = 'RELATION.RUNSON' and cirelationhis.targetci = ci.cinum) HISTORICAL_RUNSON_RECS
+from ci
+  join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+  join person on PERSON.PERSONID = CI.CHANGEBY
+  left join (select cinum, assetattrid, alnvalue ENVIRONMENT from cispec where cispec.assetattrid = 'ENVIRONMENT') ENVIRONMENT on ENVIRONMENT.CINUM = ci.cinum
+where 
+  ci.status not in 'DECOMMISSIONED'
+  and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.PHYSICALCOMPUTERSYSTEM', 'CI.VIRTUALCOMPUTERSYSTEM')
+  and not exists
+    (select 1
+    from CIRELATION
+    where targetci = ci.cinum and relationnum in ('RELATION.RUNSON'))
+order by CLASSSTRUCTURE.CLASSIFICATIONID, person.ownergroup, ci.ciname;
+
+select * from cirelation;
+
+select CIRELATIONHIS.sourceci, srcci.ciname SOURCE_NAME,
+  CIRELATIONHIS.relationnum, 
+  CIRELATIONHIS.targetci, tgtci.ciname TARGET_NAME,
+  CIRELATIONHIS.startdate, CIRELATIONHIS.enddate, CIRELATIONHIS.changeby
+from CIRELATIONHIS
+  join ci tgtci on tgtci.cinum = targetci
+  join ci srcci on srcci.cinum = sourceci
+where sourceci = '7130' or targetci = '7130';
 
 /*******************************************************************************
 *  VirtualComputerSystems with no related cluster or Hosting_subscription
 *******************************************************************************/
 
 select ', =' || ci.cinum, ci.ciname, CI.ASSETNUM, CI.PMCCIIMPACT, CI.EX_SUPPORTCALENDAR, CLASSSTRUCTURE.CLASSIFICATIONID, 
+  ci.changedate, ci.changeby,
   ENVIRONMENT.ENVIRONMENT, 
   VM_CLUSTER.CLUSTERNAME, HS_ATTR.subscription
 --  ci.CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, person.ownergroup, CI.CHANGEDATE
@@ -103,6 +134,7 @@ where
   ci.status not in 'DECOMMISSIONED'
   and CLASSSTRUCTURE.CLASSIFICATIONID in ('CI.VIRTUALCOMPUTERSYSTEM')
   and VM_CLUSTER.CLUSTERNAME is null and HS_ATTR.subscription is null
+--  and ci.changedate >= sysdate - 60
 --  and ci.CHANGEBY != 'BDENSMOR'
 order by person.ownergroup, CLASSSTRUCTURE.CLASSIFICATIONID, ci.ciname;
 
@@ -203,41 +235,43 @@ order by CLASSSTRUCTURE.CLASSIFICATIONID, CI.CHANGEBY;
 *******************************************************************************/
 
 select 
---  ',=' || ci.cinum, ci.ciname, classstructure.classificationid, CISPEC.ASSETATTRID, CISPEC.ALNVALUE, ci.changeby, ci.changedate
-  classstructure.classificationid, 
-  CIspec.ASSETATTRID, 
-  count(*) TOTAL,
-  count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) COMPLETED_COUNT, 
-  count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) NOTCOMPLETED_COUNT, 
-  round(count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) /count(*) * 100, 2) COMPLETED_PCT, 
-  round(count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) /count(*) * 100, 2) NOTCOMPLETED_PCT
+  ',=' || ci.cinum, ci.cinum, ci.ciname, classstructure.classificationid, CISPEC.ASSETATTRID, CISPEC.ALNVALUE, ci.changeby, ci.changedate
+--  classstructure.classificationid, 
+--  CIspec.ASSETATTRID, 
+--  count(*) TOTAL,
+--  count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) COMPLETED_COUNT, 
+--  count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) NOTCOMPLETED_COUNT, 
+--  round(count(case when CIspec.alnvalue is not null then 'COMPLETE' else null end) /count(*) * 100, 2) COMPLETED_PCT, 
+--  round(count(case when CIspec.alnvalue is null then 'NOTCOMPLETE' else null end) /count(*) * 100, 2) NOTCOMPLETED_PCT
 from CI
   join classstructure on classstructure.classstructureid = ci.classstructureid
   join CIspec on CIspec.cinum = CI.cinum
 where 1=1
---  and ( 1=0
---    OR (classstructure.classificationid = 'CI.COMPUTERSYSTEMCLUSTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
+  and CI.STATUS not in ('DECOMMISSIONED')
+  and ( 1=0
+    OR (classstructure.classificationid = 'CI.COMPUTERSYSTEMCLUSTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
 --    or (classstructure.classificationid = 'CI.MSSQLSCHEMA' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
 --    or (classstructure.classificationid = 'CI.FIREWALL' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
 --    or (classstructure.classificationid = 'CI.ORACLEDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'ORACLEDATABASE_DBVERSION'))
 --    or (classstructure.classificationid = 'CI.ORACLESCHEMA' and CIspec.ASSETATTRID in ('VERSION'))
---    or (classstructure.classificationid = 'CI.PHYSICALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
+    or (classstructure.classificationid = 'CI.PHYSICALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT'/*, 'OPERATINGSYSTEM_NAME', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
 --    or (classstructure.classificationid = 'CI.RACK' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
 --    or (classstructure.classificationid = 'CI.ROUTER' and CIspec.ASSETATTRID in ('ENVIRONMENT'))
 --    or (classstructure.classificationid = 'CI.SOFTWAREINSTALLATION' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'APPLICATION_TYPE', 'MANUFACTURER', 'SUPPORTHOURS', 'VERSION'))
 --    or (classstructure.classificationid = 'CI.SOFTWAREPRODUCT' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
 --    or (classstructure.classificationid = 'CI.SQLSERVERDATABASE' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'MANUFACTURER', 'VERSION'))
---    or (classstructure.classificationid = 'CI.VIRTUALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT', 'OPERATINGSYSTEM_NAME'/*, 'IPNETWORK_NAME', 'MAINTENANCE_WINDOW', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
---  )
+    or (classstructure.classificationid = 'CI.VIRTUALCOMPUTERSYSTEM' and CIspec.ASSETATTRID in ('ENVIRONMENT'/*, 'OPERATINGSYSTEM_NAME', 'IPNETWORK_NAME', 'MAINTENANCE_WINDOW', 'INTERNAL_IP_ADDRESS', 'RSA_IP_ADDRESS', 'STORAGE_IP_ADDRESS'*/))
+  )
   and classstructure.classificationid not in ('CI.BUSINESSSERVICE', 'CI.DNSSERVICE', 'CI.GENERIC_COMPUTERSYSTEM', 'CI.INFRASERVICE', 
                                               'CI.LDAPSERVICE', 'CI.NETWORKSERVICE', 'CI.SERVICE', 'CI.SYSTEMCONTROLLER', 'CI.TAPELIBRARY', 'CI.UPS', 'CI.WEBSERVICE')
---  and alnvalue is null
-group by 
-    classstructure.classificationid,
-    CIspec.ASSETATTRID
+  and alnvalue is null
+  and ci.changedate >= sysdate - 90
+--group by 
+--    classstructure.classificationid,
+--    CIspec.ASSETATTRID
 order by 
   classstructure.classificationid,
---  ci.cinum, 
+  ci.cinum, 
   CIspec.ASSETATTRID
 ;
 
@@ -269,9 +303,10 @@ order by ci.ciname, ci.cinum;
 
 --Details
 select ',='||ci.cinum CINUM, ci.cinum, ci.ciname, /*ci.description,*/ CLASSSTRUCTURE.CLASSIFICATIONID, 
-  CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, CI.CHANGEDATE
+  CCIPERSONGROUP OWNERGROUP, CI.CHANGEBY, CI.CHANGEDATE, specs.speccount
 from ci
   left join classstructure on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+  left join (select cinum, count(*) SPECCOUNT from cispec where (alnvalue is not null or numvalue is not null) group by cinum) SPECS on specs.cinum = ci.cinum
 where CLASSSTRUCTURE.CLASSIFICATIONID not in 
   ('CI.PHYSICALCOMPUTERSYSTEM', 'CI.ROUTER', 'CI.NETWORK', 'CI.FIREWALL', 'CI.PDU', 
   'CI.SWITCH', 'CI.SQLSERVERDATABASE', 'CI.WEBSERVICE', 'CI.NETWORKSERVICE', 'CI.MSSQLSCHEMA', 
@@ -322,22 +357,6 @@ where asset.status in ('IN STOCK', 'DEPLOYED')
 order by asset.assetnum;
 
 
-/*******************************************************************************
-*  Relationships to/from inactive CIs
-*******************************************************************************/
-
-select ', =' || SOURCECI.cinum source_cinum, SOURCECI.STATUS src_status, SRC_CLASS.CLASSIFICATIONID src_class, SOURCECI.CINAME src_ciname,
-  CIRELATION.RELATIONNUM, 
-  TARGETCI.cinum target_cinum, TARGETCI.STATUS tgt_status, TGT_CLASS.CLASSIFICATIONID tgt_class, TARGETCI.CINAME tgt_ciname
-from CIRELATION
-  join ci sourceci on SOURCECI.CINUM = CIRELATION.SOURCECI
-  left join CLASSSTRUCTURE src_class on src_class.CLASSSTRUCTUREID = SOURCECI.CLASSSTRUCTUREID
-  join ci targetci on TARGETCI.CINUM = CIRELATION.TARGETCI
-  left join classstructure tgt_class on TGT_CLASS.CLASSSTRUCTUREID = TARGETCI.CLASSSTRUCTUREID
-where SOURCECI.STATUS = 'DECOMMISSIONED'
-  or TARGETCI.STATUS = 'DECOMMISSIONED'
-order by SOURCECI.STATUS, sourceci.cinum;
-
 
 /*******************************************************************************
 *  CIs with specs not based on classification
@@ -345,17 +364,82 @@ order by SOURCECI.STATUS, sourceci.cinum;
 
 select 
 --  distinct cispec.cinum
-  cispec.cinum, ci.ciname, ci.changeby, ci.changedate, CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID, CISPEC.ALNVALUE, CISPEC.NUMVALUE, CISPEC.CHANGEBY ATTRCHGBY, CISPEC.CHANGEDATE ATTRCHGDATE
+  cispec.CISPECID, cispec.cinum, ci.ciname, ci.changeby, ci.changedate, CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID, CISPEC.ALNVALUE, CISPEC.NUMVALUE, CISPEC.CHANGEBY ATTRCHGBY, CISPEC.CHANGEDATE ATTRCHGDATE,
+  case when
+    not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
+  then 'Attr not on Class' end NOTONCLASS
 --  CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID, count(*)
 from cispec
   left join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID
   join ci on CISPEC.CINUM = CI.CINUM
 where 1=1
   and not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
+  and ci.status != 'DECOMMISSIONED'
+--  and assetattrid not in ('VLAN_VLANID', 'OPERATINGSYSTEM_NAME', 'IPNETWORK_NAME', 'APPSERVER_GENERALCIROLE', 'COMPUTERSYSTEM_GENERALCIROLE')
 --  and CLASSSTRUCTURE.DESCRIPTION in ('CI.MSSQLSCHEMA')
 --  and CISPEC.ASSETATTRID in ('MANUFACTURER')
 --  and CISPEC.ALNVALUE != 'Microsoft'
 --  and CISPEC.CHANGEBY not in ('MXINTADM')
 --group by CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID
 --order by CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID
+order by cispec.CINUM, CLASSSTRUCTURE.DESCRIPTION, cispec.ASSETATTRID
 ;
+
+select *
+from cispec
+where assetattrid = ''
+and alnvalue is not null
+
+/*******************************************************************************
+*  MXLoader Version
+*******************************************************************************/
+
+select * from cispec where
+cispecid in 
+  (select
+    cispec.CISPECID
+from cispec
+  join ci on CISPEC.CINUM = CI.CINUM
+where 1=1
+  and cispec.alnvalue is null
+  and cispec.numvalue is null
+  and not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
+  and ci.status != 'DECOMMISSIONED')
+;
+
+
+/*******************************************************************************
+*  CIs missing specs defined in the classification
+*******************************************************************************/
+
+select ci.CINUM, ci.CINAME, ci.CLASSSTRUCTUREID, classspec.ASSETATTRID
+from ci
+  join classspec on (CLASSSPEC.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+                    and assetattrid not in (select assetattrid from cispec where cispec.cinum = ci.cinum))
+where ci.STATUS != 'DECOMMISSIONED'
+order by cinum, classspec.ASSETATTRID;
+
+/*******************************************************************************
+*  CIs missing specs from classification or with extra specs
+*******************************************************************************/
+
+
+select 
+  cispec.cinum, ci.ciname, CLASSSTRUCTURE.DESCRIPTION, 
+  'Extra' MISSING_OR_EXTRA,
+  cispec.ASSETATTRID, CISPEC.ALNVALUE, to_char(CISPEC.NUMVALUE)
+from cispec
+  left join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID
+  join ci on CISPEC.CINUM = CI.CINUM
+where not exists (select 1 from classspec where CLASSSPEC.ASSETATTRID = CISPEC.ASSETATTRID and CLASSSPEC.CLASSSTRUCTUREID = CISPEC.CLASSSTRUCTUREID)
+  and ci.status != 'DECOMMISSIONED'
+UNION
+select ci.CINUM, ci.CINAME, CLASSSTRUCTURE.DESCRIPTION, 
+  'Missing' MISSING_OR_EXTRA,
+  classspec.ASSETATTRID, '' ALNVALUE, '' NUMVALUE
+from ci
+  left join CLASSSTRUCTURE on CLASSSTRUCTURE.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+  join classspec on (CLASSSPEC.CLASSSTRUCTUREID = CI.CLASSSTRUCTUREID
+                    and assetattrid not in (select assetattrid from cispec where cispec.cinum = ci.cinum))
+where ci.STATUS != 'DECOMMISSIONED'
+order by cinum, missing_or_extra, assetattrid;

@@ -21,7 +21,17 @@ order by processrev, status
 
 select 
 --  *
+  case when
+    grouping(
+      case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+      case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+    end) = 1 then 'MONTH' else 'COMPANY' end GROUP_LEVEL,
+  
   to_char(trunc(transdate, 'MON'), 'Mon yyyy') MONTH,
+  case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+    case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+  end COMPANY,
+  
   count(*) TOTAL,
   sum(case when WFTRANSACTION.transtype = 'ACCEPT' then 1 else null end) ACCEPTED,
   sum(case when WFTRANSACTION.transtype = 'REJECT' then 1 else null end) REJECTED,
@@ -30,27 +40,44 @@ select
 from WFTRANSACTION
   join wochange on ownerid = workorderid
 where 1=1
---  and personid = '[[PERSONID]]'
+--  and personid = 'BDENSMOR'
   and WFTRANSACTION.processname = 'EX_CHG'
   and WFTRANSACTION.transtype in ('ACCEPT', 'REJECT')
   and nodeid in (select nodeid from wfnode where wfnode.processname = WFTRANSACTION.processname and wfnode.title = 'REVIEW_CI')
+  and to_char(transdate, 'yyyy') in ('2016', '2017')
 --group by trunc(transdate, 'MON'), WFTRANSACTION.transtype, ownergroup
-group by trunc(transdate, 'MON')
+group by trunc(transdate, 'MON'),
+  rollup(case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+    case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+  end)
 --order by trunc(transdate, 'MON'), WFTRANSACTION.transtype, count(*) desc, ownergroup
-order by trunc(transdate, 'MON'), count(*) desc
+order by 
+  case when
+    grouping(
+      case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+      case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+    end) = 1 then 'MONTH' else 'COMPANY' end desc,
+  trunc(transdate, 'MON'), 
+  case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+    case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+  end
 ;
 
 
 /*******************************************************************************
 *  Change sched review stats
-*
-* - Add group breakdown - ENMAX, LVS, TCS
 *******************************************************************************/
 
 select distinct persongroup from persongroup order by persongroup;
 
 select 
 --  *
+  case when
+    grouping(
+      case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+      case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+    end) = 1 then 'MONTH' else 'COMPANY' end GROUP_LEVEL,
+
   to_char(trunc(transdate, 'MON'), 'Mon yyyy') MONTH,
   case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
     case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
@@ -64,16 +91,23 @@ select
 from WFTRANSACTION
   join wochange on ownerid = workorderid
 where 1=1
+--  and personid = 'BDENSMOR'
   and processname = 'EX_CHG'
   and nodeid in (select nodeid from wfnode where wfnode.processname = WFTRANSACTION.processname and wfnode.title = 'SCHEDULING')
   and transtype in ('ACCEPT', 'REJECT')
---group by trunc(transdate, 'MON'), WFTRANSACTION.transtype, ownergroup
+  and to_char(transdate, 'yyyy') = '2016'
 group by trunc(transdate, 'MON'),
-  case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+  rollup(case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
     case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
-  end 
+  end)
 --order by trunc(transdate, 'MON'), WFTRANSACTION.transtype, count(*) desc, ownergroup
-order by trunc(transdate, 'MON'), 
+order by 
+  case when
+    grouping(
+      case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
+      case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
+    end) = 1 then 'MONTH' else 'COMPANY' end desc,
+  trunc(transdate, 'MON'), 
   case when ((wochange.ownergroup like 'LVS-%') or (wochange.ownergroup = 'VEN-INFRASTRUCTURE-PRJ')) then 'LVS' else 
     case when (wochange.ownergroup like 'TCS-%') then 'TCS' else 'ENMAX' end
   end,
@@ -113,4 +147,5 @@ where wftransaction.transtype = 'WFASSIGNCOMP'
 --group by ACT_BY_PERSON.OWNERGROUP
 --order by count(*) desc
 order by wochange.workorderid, wochange.wonum, 
+  wfassignment.assignid
 ;

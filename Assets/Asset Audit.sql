@@ -513,39 +513,59 @@ where CLASSSTRUCTURE.CLASSIFICATIONID is null
 ;
 
 /*******************************************************************************
-*  Assets with duplicate asset tag or serial numbers
+*  Assets with duplicate asset tag, serial numbers, phone numbers, IMEI
 *******************************************************************************/
 
-select *
-from
-  (select 
-    ',='|| assetnum AN,
-    assetnum,
-    assettag,
-    EX_OTHER,
-    serialnum,
+  select 
+    ',='|| primeasset.assetnum AN,
+    primeasset.assetnum,
+    primeasset.assettag,
+--    primeasset.EX_OTHER,
+    primeasset.serialnum,
     classpath.classpath,
-    CHANGEBY,
-    CHANGEDATE,
-    status,
-    (select count(*) from asset DUPASSET where DUPASSET.assettag = PRIMEASSET.assettag) DUP_ASSETTAGS,
-    case when (select count(*) from asset DUPASSET where DUPASSET.assettag = PRIMEASSET.assettag) > 1 then 
-      (select LISTAGG(asset.assetnum, ', ') within group (order by PRIMEASSET.assettag) from asset where asset.assettag = PRIMEASSET.assettag group by assettag)
-      else null end ASSETTAG_DUP_ASSETNUMS,
-    (select count(*) from asset DUPASSET where DUPASSET.SERIALNUM = PRIMEASSET.SERIALNUM) DUP_SERIAL,
-    case when (select count(*) from asset DUPASSET where DUPASSET.SERIALNUM = PRIMEASSET.SERIALNUM) > 1 then 
-      (select LISTAGG(asset.assetnum, ', ') within group (order by PRIMEASSET.serialnum) from asset where asset.serialnum = PRIMEASSET.serialnum group by serialnum)
-      else null end SERIALNUM_DUP_ASSETNUMS
+    primeasset.CHANGEBY,
+    primeasset.CHANGEDATE,
+    primeasset.status,
+    DUP_ASSETTAGS.DUP_CNT DUP_ASSETTAG_CNT,
+    DUP_SERIALNUMS.DUP_CNT DUP_SERIALNUM_CNT,
+    PHONE_SPEC.PHONENUM,
+    DUP_PHONE_SPEC.DUP_CNT DUP_PHONENUM_CNT,
+    IMEI_SPEC.IMEI,
+    DUP_IMEI_SPEC.DUP_CNT DUP_IMEI_CNT
+--    (select count(*) from asset DUPASSET where DUPASSET.assettag = PRIMEASSET.assettag) DUP_ASSETTAGS,
+--    case when (select count(*) from asset DUPASSET where DUPASSET.assettag = PRIMEASSET.assettag) > 1 then 
+--      (select LISTAGG(asset.assetnum, ', ') within group (order by PRIMEASSET.assettag) from asset where asset.assettag = PRIMEASSET.assettag group by assettag)
+--      else null end ASSETTAG_DUP_ASSETNUMS,
+--    (select count(*) from asset DUPASSET where DUPASSET.SERIALNUM = PRIMEASSET.SERIALNUM) DUP_SERIAL,
+--    case when (select count(*) from asset DUPASSET where DUPASSET.SERIALNUM = PRIMEASSET.SERIALNUM) > 1 then 
+--      (select LISTAGG(asset.assetnum, ', ') within group (order by PRIMEASSET.serialnum) from asset where asset.serialnum = PRIMEASSET.serialnum group by serialnum)
+--      else null end SERIALNUM_DUP_ASSETNUMS
   from asset PRIMEASSET
     join (select classstructureid, LISTAGG(ANCESTORCLASSID, ' \ ') within group (order by hierarchylevels desc) as CLASSPATH from CLASSANCESTOR group by classstructureid) CLASSPATH on CLASSPATH.CLASSstructureid = PRIMEASSET.CLASSSTRUCTUREID
+    left join (select DUPASSET.assettag, count(*) - 1 DUP_CNT from asset DUPASSET group by DUPASSET.assettag) DUP_ASSETTAGS on DUP_ASSETTAGS.assettag = PRIMEASSET.assettag
+    left join (select DUPASSET.serialnum, count(*) - 1 DUP_CNT from asset DUPASSET group by DUPASSET.serialnum) DUP_SERIALNUMS on DUP_SERIALNUMS.serialnum = PRIMEASSET.serialnum
+    join (select assetnum, alnvalue, regexp_replace(alnvalue, '-|\.|\ |\(|\)', '') PHONENUM, length(regexp_replace(alnvalue, '-|\.|\ |\(|\)', '')) PHONE_LEN from ASSETSPEC where ASSETSPEC.ASSETATTRID = 'PHONENUMBER') PHONE_SPEC on PHONE_SPEC.assetnum = PRIMEASSET.ASSETNUM
+    join (select assetnum, alnvalue, regexp_replace(alnvalue, '-|\.|\ |\(|\)', '') IMEI, length(regexp_replace(alnvalue, '-|\.|\ |\(|\)', '')) IMEI_LEN from ASSETSPEC where ASSETSPEC.ASSETATTRID = 'IMEI') IMEI_SPEC on IMEI_SPEC.assetnum = PRIMEASSET.ASSETNUM
+    join (select regexp_replace(alnvalue, '-|\.|\ |\(|\)', '') PHONENUM, count(*) - 1 DUP_CNT from ASSETSPEC where ASSETSPEC.ASSETATTRID = 'PHONENUMBER' group by regexp_replace(alnvalue, '-|\.|\ |\(|\)', '')) DUP_PHONE_SPEC on DUP_PHONE_SPEC.PHONENUM = PHONE_SPEC.PHONENUM
+    join (select regexp_replace(alnvalue, '-|\.|\ |\(|\)', '') IMEI, count(*) - 1 DUP_CNT from ASSETSPEC where ASSETSPEC.ASSETATTRID = 'IMEI' group by regexp_replace(alnvalue, '-|\.|\ |\(|\)', '')) DUP_IMEI_SPEC on DUP_IMEI_SPEC.IMEI = IMEI_SPEC.IMEI
   where
-    status = 'DEPLOYED'
+    primeasset.status not in ('DECOMMISSIONED', 'DISPOSED')
 --    and PRIMEASSET.CLASSSTRUCTUREID in ('1123', '1238', '1147', '1243', '1206', '1241', '1120', '1121', '1178', '1279')
-  )
-where ((DUP_ASSETTAGS > 1 and assettag is not null)
-  or (DUP_SERIAL > 1 and serialnum is not null))
-order by assettag;
+--    and CLASSPATH.CLASSPATH not in ('IT \ TELECOM \ DESKPHONE', 'IT \ TELECOM \ CONFPHONE')
+    and CLASSPATH.CLASSPATH in ('IT \ COMPEQ \ COMPSYS \ MOBILE \ TABLET', 
+                                'IT \ COMPEQ \ COMPSYS \ MOBILE \ SMARTPHONE',
+                                'IT \ TELECOM \ MOBILEPHONE',
+                                'IT \ TELECOM \ MOBILEDATA')
+--    and PHONE_SPEC.PHONE_LEN != 10
+;
 
+select regexp_replace(phonenum, '-|\.|\ |\(|\)', '') PHONENUM, person.personid, displayname, person.status, type, isprimary
+from phone
+  left join person on person.personid = phone.personid;
+
+
+select personid, supervisor
+from person;
 
 /*******************************************************************************
 *  All Deskside asset data
@@ -646,20 +666,6 @@ from asset
 where exists (select 1 from ci where ci.status != 'OPERATING' and ci.assetnum = asset.assetnum)
   and asset.status in ('IN STOCK', 'DEPLOYED')
 order by CLASSSTRUCTURE.CLASSIFICATIONID, asset.CHANGEBY;
-
-
-/*******************************************************************************
-*  Assets with Manufacturer not in Manufacturer list
-*******************************************************************************/
-
-select assetnum, manufacturer
-from asset
-where manufacturer is not null
-  and not exists
-    (select 1
-    from companies
-    where companies.type = 'M'
-      and companies.company = asset.manufacturer);
 
 
 /*******************************************************************************
