@@ -1,0 +1,34 @@
+select MAXEXTIFACEOUT.extsysname, MAXEXTIFACEOUT.enabled, MAXEXTIFACEOUT.ifacename, 
+    '  ||' sep,
+    MAXIFACEOUT.intobjectname,
+    MAXIFACEOUT.IFACEMAPNAME, 
+    MAXIFACEOUT.EVENTFILTERCLASS, 
+    MAXIFACEOUT.LISTENER,
+    '  ||' sep,
+    MAXINTOBJDETAIL.HIERARCHYPATH
+from MAXEXTIFACEOUT
+    left join MAXIFACEOUT on MAXEXTIFACEOUT.ifacename = MAXIFACEOUT.ifacename
+    left join MAXINTOBJDETAIL on MAXIFACEOUT.INTOBJECTNAME = MAXINTOBJDETAIL.INTOBJECTNAME
+where extsysname = 'M2M'
+    and hierarchypath like ('%PRLINEROB%')
+order by MAXEXTIFACEOUT.enabled desc, MAXEXTIFACEOUT.extsysname, MAXEXTIFACEOUT.ifacename, MAXIFACEOUT.intobjectname, MAXINTOBJDETAIL.HIERARCHYPATH
+;
+
+
+
+select MAXEXTIFACEIN.extsysname, MAXEXTIFACEIN.enabled, MAXEXTIFACEIN.ifacename, 
+    '  ||' sep,
+    MAXIFACEIN.intobjectname,
+    MAXIFACEIN.IFACEMAPNAME, 
+    '  ||' sep,
+    MAXINTOBJDETAIL.HIERARCHYPATH
+from MAXEXTIFACEIN
+    left join MAXIFACEIN on MAXEXTIFACEIN.ifacename = MAXIFACEIN.ifacename
+    left join MAXINTOBJDETAIL on MAXIFACEIN.INTOBJECTNAME = MAXINTOBJDETAIL.INTOBJECTNAME
+where extsysname = 'M2M'
+    and hierarchypath like ('%PRLINEROB%')
+order by MAXEXTIFACEIN.enabled desc, MAXEXTIFACEIN.extsysname, MAXEXTIFACEIN.ifacename, MAXIFACEIN.intobjectname, MAXINTOBJDETAIL.HIERARCHYPATH
+;
+
+select *
+from MAXIFACEIN;

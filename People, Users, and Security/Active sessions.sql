@@ -49,3 +49,20 @@ where ACTIVE = 1
 --  and servername like 'MXUI%'
   and userid in ('[[USERID]]')
 ;
+
+/*******************************************************************************
+* Show period of activity for the current day of the week over past 1 year
+*******************************************************************************/
+
+-- This example is for the past 3 years
+select
+    TO_CHAR(trunc(attemptdate,'hh24'), 'hh24') HOUR,
+    -- Divide the count by 159, which is the number of Tuesdays in the past 3 years
+    round(count(*) / 52, 1) AVG_COUNT
+from logintracking
+where attemptresult = 'LOGIN'
+    and TO_CHAR(attemptdate, 'DAY') = TO_CHAR(sysdate, 'DAY')
+    and attemptdate >= sysdate - (1 * 365)
+group by rollup(TO_CHAR(trunc(attemptdate,'hh24'), 'hh24'))
+order by TO_CHAR(trunc(attemptdate,'hh24'), 'hh24');
+

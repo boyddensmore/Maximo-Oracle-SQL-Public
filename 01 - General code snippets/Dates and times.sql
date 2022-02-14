@@ -62,26 +62,20 @@ from all_objects
 -- first day of this month.
 where rownum <= (trunc(add_months(sysdate, &monthsago+1), 'MON')) -
                (trunc(add_months(sysdate, &monthsago), 'MON'));
-               
-
-/*******************************************************************************
-*  List last X years
-*******************************************************************************/
-
-select extract(year from sysdate) - (level-1) as years 
-  from dual 
-connect by level <=5
-order by years;
 
 
 /*******************************************************************************
-*  List last X months
+* Find the number of times the current day of the week has 
+* occurred in the past X years
 *******************************************************************************/
+define monthsago = (-12 * 3);
 
-select to_char(months, 'Month yyyy')
+select *
 from
-  (SELECT add_months(SYSDATE, (LEVEL-7)) as months 
-    FROM dual
-  CONNECT BY LEVEL <= 24
-  order by months asc)
+    (select
+      rownum - 1 + trunc(add_months(sysdate, &monthsago), 'MON') DAY,
+      TO_CHAR(rownum - 1 + trunc(add_months(sysdate, &monthsago), 'MON'), 'DAY') DAYOFWEEK
+    from all_objects
+    where rownum <= sysdate - (trunc(add_months(sysdate, &monthsago), 'MON'))) DAYS
+where DAYS.DAYOFWEEK = TO_CHAR(sysdate, 'DAY')
 ;

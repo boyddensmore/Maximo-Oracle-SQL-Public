@@ -1,48 +1,5 @@
 
 /*******************************************************************************
-*  Person details
-*******************************************************************************/
-
-select person.personid, person.status, person.displayname, person.firstname, person.lastname, 
-  person.title, person.supervisor, person.location,
-  person.company, person.ex_businessunit, person.department, person.deptdesc,
-  phone.type, phone.isprimary, phone.phonenum,
-  email.type, email.isprimary, email.emailaddress
-from person
-  left join phone on PHONE.PERSONID = PERSON.PERSONID
-  left join email on PERSON.PERSONID = EMAIL.PERSONID
-;
-
-
-/*******************************************************************************
-*  Person supervisor chain
-*******************************************************************************/
-
-select connect_by_root LOCATIONS.DESCRIPTION LOCATION_ROOT, level, lochierarchy.location, LOCATIONS.DESCRIPTION LOC_DESC, CLASSSTRUCTURE.DESCRIPTION LOC_CLASS, 
-  SYS_CONNECT_BY_PATH(lochierarchy.location || ' (' || CLASSSTRUCTURE.DESCRIPTION || ')', ' >> ') PATH
-from LOCHIERARCHY
-  left join LOCATIONS on LOCHIERARCHY.location = LOCATIONS.location
-  left join classstructure on LOCATIONS.CLASSSTRUCTUREID = CLASSSTRUCTURE.CLASSSTRUCTUREID
-start with lochierarchy.parent = 'ENMAX'
-connect by prior lochierarchy.location = lochierarchy.parent
-order by SYS_CONNECT_BY_PATH(lochierarchy.location || ' (' || CLASSSTRUCTURE.DESCRIPTION || ')', ' >> ')
-;
-
-
-/*******************************************************************************
-*  Find each person's supervisor with a specific title
-*******************************************************************************/
-
-select person.personid, superperson.superpath, superperson.title
-from person
-  left join
-    (select connect_by_root superperson.personid PERSONID, superperson.title, level lvl, SYS_CONNECT_BY_PATH(superperson.personid, ' >> ') SUPERPATH
-    from person superperson
-    connect by prior superperson.supervisor = superperson.personid) superperson on (superperson.personid = person.personid and upper(superperson.title) like 'VP%')
-;
-
-
-/*******************************************************************************
 *  List of people who have been PEND_DEACTIV for 30 days or more and have not
 *  left PEND_DEACTIV in the past 30 days.
 *******************************************************************************/

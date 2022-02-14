@@ -1,27 +1,19 @@
 /*******************************************************************************
-*  BD - To use, replace USERID on line 6 with the user in question.  Run this SQL as
+*  BD - To use, replace USERID on line 5 with the user in question.  Run this SQL as
 *  a script (F5 in SQL Developer) and check the script output for all details.
 *******************************************************************************/
 
-select userid, displayname
-from maxuser
-  left join PERSON on person.personid = MAXUSER.PERSONID
-where userid like 'U%%';
+
 define USERID = "'[[USERNAME]]'";
 
 --Find all security groups a user is in
 select Groupuser.Userid, Groupuser.Groupname
-from groupuser
+from maximo.groupuser
 where Groupuser.Userid = &USERID;
-
--- What groups grant access to template
-select GROUPNAME, DESCRIPTION, SCTEMPLATEID
-from MAXGROUP
-where SCTEMPLATEID = 3;
 
 --Find all person groups a user is in
 select Persongroupteam.Respparty, Persongroupteam.Persongroup, ',=' || Persongroupteam.Persongroup
-from Persongroupteam
+from maximo.Persongroupteam
 where respparty = &USERID;
 
 
@@ -35,13 +27,12 @@ where respparty = &USERID;
 --order by userid;
 
 
-
---Find all security groups a user is in
-select Groupuser.Userid, Groupuser.Groupname
-from groupuser
-where Groupuser.Userid in ('[[USERNAME]]');
-
-select Persongroupteam.Respparty, Persongroupteam.Persongroup, ',=' || Persongroupteam.Persongroup
-from Persongroupteam
-where respparty in ('[[USERNAME]]')
-ORDER BY RESPPARTY, PERSONGROUP;
+-- List all Security Groups and membership
+select Groupuser.Groupname, Groupuser.Userid,
+    person.firstname, person.lastname, person.displayname,
+    maxuser.status userstatus, person.status personstatus
+from maximo.groupuser
+    left join maxuser on maxuser.userid = groupuser.userid
+    left join person on person.personid = maxuser.personid
+order by groupuser.groupname, groupuser.userid
+;
